@@ -1,0 +1,5 @@
+/build
+/.vscode
+# MSVC
+/.vs
+/out/Build
