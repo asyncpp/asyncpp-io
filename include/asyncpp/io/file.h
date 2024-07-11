@@ -102,7 +102,7 @@ namespace asyncpp::io {
 			detail::io_engine::completion_data m_completion;
 
 		public:
-			constexpr file_read_awaitable(io_engine* engine, io_engine::file_handle_t fd, void* buf, size_t len,
+			file_read_awaitable(io_engine* engine, io_engine::file_handle_t fd, void* buf, size_t len,
 										  uint64_t offset, std::error_code* ec) noexcept
 				: m_engine(engine), m_fd(fd), m_buf(buf), m_len(len), m_offset(offset), m_ec(ec), m_completion{} {}
 			bool await_ready() const noexcept { return false; }
@@ -112,10 +112,10 @@ namespace asyncpp::io {
 				return !m_engine->enqueue_readv(m_fd, m_buf, m_len, m_offset, &m_completion);
 			}
 			size_t await_resume() {
-				if (m_completion.result >= 0) return static_cast<size_t>(m_completion.result);
+				if (!m_completion.result) return m_completion.result_size;
 				if (m_ec == nullptr)
-					throw std::system_error(std::error_code(-m_completion.result, std::system_category()));
-				*m_ec = std::error_code(-m_completion.result, std::system_category());
+					throw std::system_error(m_completion.result);
+				*m_ec = m_completion.result;
 				return 0;
 			}
 		};
@@ -140,7 +140,7 @@ namespace asyncpp::io {
 			detail::io_engine::completion_data m_completion;
 
 		public:
-			constexpr file_write_awaitable(io_engine* engine, io_engine::file_handle_t fd, const void* buf, size_t len,
+			file_write_awaitable(io_engine* engine, io_engine::file_handle_t fd, const void* buf, size_t len,
 										   uint64_t offset, std::error_code* ec) noexcept
 				: m_engine(engine), m_fd(fd), m_buf(buf), m_len(len), m_offset(offset), m_ec(ec), m_completion{} {}
 			bool await_ready() const noexcept { return false; }
@@ -150,10 +150,10 @@ namespace asyncpp::io {
 				return !m_engine->enqueue_writev(m_fd, m_buf, m_len, m_offset, &m_completion);
 			}
 			size_t await_resume() {
-				if (m_completion.result >= 0) return static_cast<size_t>(m_completion.result);
+				if (!m_completion.result) return m_completion.result_size;
 				if (m_ec == nullptr)
-					throw std::system_error(std::error_code(-m_completion.result, std::system_category()));
-				*m_ec = std::error_code(-m_completion.result, std::system_category());
+					throw std::system_error(m_completion.result);
+				*m_ec = m_completion.result;
 				return 0;
 			}
 		};
@@ -175,7 +175,7 @@ namespace asyncpp::io {
 			detail::io_engine::completion_data m_completion;
 
 		public:
-			constexpr file_fsync_awaitable(io_engine* engine, io_engine::file_handle_t fd, std::error_code* ec) noexcept
+			file_fsync_awaitable(io_engine* engine, io_engine::file_handle_t fd, std::error_code* ec) noexcept
 				: m_engine(engine), m_fd(fd), m_ec(ec), m_completion{} {}
 			bool await_ready() const noexcept { return false; }
 			bool await_suspend(coroutine_handle<> hdl) {
@@ -184,10 +184,10 @@ namespace asyncpp::io {
 				return !m_engine->enqueue_fsync(m_fd, io_engine::fsync_flags::none, &m_completion);
 			}
 			void await_resume() {
-				if (m_completion.result >= 0) return;
+				if (!m_completion.result) return;
 				if (m_ec == nullptr)
-					throw std::system_error(std::error_code(-m_completion.result, std::system_category()));
-				*m_ec = std::error_code(-m_completion.result, std::system_category());
+					throw std::system_error(m_completion.result);
+				*m_ec = m_completion.result;
 			}
 		};
 	} // namespace detail
@@ -269,7 +269,7 @@ namespace asyncpp::io {
 		file(const file&) = delete;
 		file(file&&) noexcept;
 		file& operator=(const file&) = delete;
-		file& operator=(file&&);
+		file& operator=(file&&) noexcept;
 		~file();
 
 		[[nodiscard]] io_service& service() const noexcept { return *m_io; }

@@ -12,7 +12,7 @@ using asyncpp::task;
 
 asyncpp::stop_token timeout(std::chrono::nanoseconds ts) {
 	asyncpp::stop_source source;
-	asyncpp::timer::get_default().schedule([source](bool) { source.request_stop(); }, ts);
+	asyncpp::timer::get_default().schedule([source](bool) mutable { source.request_stop(); }, ts);
 	return source.get_token();
 }
 

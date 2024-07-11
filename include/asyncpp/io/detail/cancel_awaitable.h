@@ -27,7 +27,7 @@ namespace asyncpp::io::detail {
 		bool await_ready() const noexcept { return m_child.await_ready(); }
 		bool await_suspend(coroutine_handle<> hdl) {
 			if (m_stop_token.stop_requested()) {
-				m_child.m_completion.result = -ECANCELED;
+				m_child.m_completion.result = std::make_error_code(std::errc::operation_canceled);
 				return false;
 			}
 			auto res = m_child.await_suspend(hdl);

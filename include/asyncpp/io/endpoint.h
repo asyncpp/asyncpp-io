@@ -108,10 +108,12 @@ namespace asyncpp::io {
 				m_ipv6 = {addr.ipv6(), port};
 				m_type = address_type::ipv6;
 				break;
+#ifndef _WIN32
 			case address_type::uds:
 				m_uds = addr.uds();
 				m_type = address_type::uds;
 				break;
+#endif
 			}
 		}
 		explicit constexpr endpoint(ipv4_endpoint ep) noexcept : m_ipv4(ep), m_type(address_type::ipv4) {}
@@ -128,15 +130,19 @@ namespace asyncpp::io {
 		constexpr ipv4_endpoint ipv4() const noexcept {
 			switch (m_type) {
 			case address_type::ipv4: return m_ipv4;
-			case address_type::ipv6:
+			case address_type::ipv6: return {};
+#ifndef _WIN32
 			case address_type::uds: return {};
+#endif
 			}
 		}
 		constexpr ipv6_endpoint ipv6() const noexcept {
 			switch (m_type) {
 			case address_type::ipv4: return {};
 			case address_type::ipv6: return m_ipv6;
+#ifndef _WIN32
 			case address_type::uds: return {};
+#endif
 			}
 		}
 #ifndef _WIN32
@@ -213,7 +219,7 @@ namespace std {
 	template<>
 	struct hash<asyncpp::io::endpoint> {
 		size_t operator()(const asyncpp::io::endpoint& x) const noexcept {
-			size_t res;
+			size_t res{};
 			switch (x.type()) {
 			case asyncpp::io::address_type::ipv4: res = std::hash<asyncpp::io::ipv4_endpoint>{}(x.ipv4()); break;
 			case asyncpp::io::address_type::ipv6: res = std::hash<asyncpp::io::ipv6_endpoint>{}(x.ipv6()); break;

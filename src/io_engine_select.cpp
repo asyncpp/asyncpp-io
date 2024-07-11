@@ -1,19 +1,20 @@
 #include <asyncpp/io/detail/io_engine.h>
 
+#ifdef _WIN32
+namespace asyncpp::io::detail {
+	std::unique_ptr<io_engine> create_io_engine_select() { return nullptr; }
+} // namespace asyncpp::io::detail
+#else
+
 #include <cstring>
 #include <mutex>
 #include <vector>
 
-#ifndef _WIN32
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
-#else
-#include <Winsock2.h>
-#include <ws2ipdef.h>
-#endif
 
 #ifdef __linux__
 #define USE_EVENTFD
@@ -65,6 +66,8 @@ namespace asyncpp::io::detail {
 		size_t run(bool nowait) override;
 		void wake() override;
 
+		socket_handle_t create_socket(address_type domain, int type) override;
+		void socket_bind(socket_handle_t socket, endpoint ep) override;
 		bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) override;
 		bool enqueue_accept(socket_handle_t socket, completion_data* cd) override;
 		bool enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) override;
@@ -118,12 +121,9 @@ namespace asyncpp::io::detail {
 	}
 
 	io_engine_select::~io_engine_select() {
-#ifdef _WIN32
-#else
 		if (m_wake_fd >= 0) close(m_wake_fd);
 #ifndef USE_EVENTFD
 		if (m_wake_fd_write >= 0) close(m_wake_fd_write);
-#endif
 #endif
 	}
 
@@ -185,9 +185,9 @@ namespace asyncpp::io::detail {
 			int result;
 			socklen_t result_len = sizeof(result);
 			if (getsockopt(e.socket, SOL_SOCKET, SO_ERROR, &result, &result_len) < 0) {
-				e.done->result = -errno;
+				e.done->result = std::error_code(errno, std::system_category());
 			} else {
-				e.done->result = -result;
+				e.done->result = std::error_code(result, std::system_category());
 			}
 			m_done_callbacks.push_back(e.done);
 			return true;
@@ -199,12 +199,12 @@ namespace asyncpp::io::detail {
 				e.state.send.len -= res;
 				e.state.send.buf = static_cast<const uint8_t*>(e.state.send.buf) + res;
 				if (e.state.send.len == 0) {
-					e.done->result = 0;
+					e.done->result.clear();
 					m_done_callbacks.push_back(e.done);
 					return true;
 				}
 			} else if (errno != EAGAIN) {
-				e.done->result = -errno;
+				e.done->result = std::error_code(errno, std::system_category());
 				m_done_callbacks.push_back(e.done);
 				return true;
 			}
@@ -213,34 +213,43 @@ namespace asyncpp::io::detail {
 		case op::accept: {
 			if ((state & RDY_READ) == 0) return false;
 			auto res = ::accept(e.socket, nullptr, nullptr);
-			if (res >= 0 || errno != EAGAIN) {
-				e.done->result = res >= 0 ? res : -errno;
-				m_done_callbacks.push_back(e.done);
-				return true;
-			}
-			return false;
+			if (res >= 0) {
+				e.done->result.clear();
+				e.done->result_handle = res;
+			} else if (errno != EAGAIN) {
+				e.done->result = std::error_code(errno, std::system_category());
+			} else
+				return false;
+			m_done_callbacks.push_back(e.done);
+			return true;
 		}
 		case op::recv: {
 			if ((state & RDY_READ) == 0) return false;
 			auto res = ::recv(e.socket, e.state.recv.buf, e.state.recv.len, 0);
-			if (res >= 0 || errno != EAGAIN) {
-				e.done->result = res >= 0 ? res : -errno;
-				m_done_callbacks.push_back(e.done);
-				return true;
-			}
-			return false;
+			if (res >= 0) {
+				e.done->result.clear();
+				e.done->result_size = res;
+			} else if (errno != EAGAIN) {
+				e.done->result = std::error_code(errno, std::system_category());
+			} else
+				return false;
+			m_done_callbacks.push_back(e.done);
+			return true;
 		}
 		case op::send_to: {
 			if ((state & RDY_WRITE) == 0) return false;
 			auto sa = e.state.send_to.destination.to_sockaddr();
 			auto res = ::sendto(e.socket, e.state.send.buf, e.state.send.len, 0, reinterpret_cast<sockaddr*>(&sa.first),
 								sa.second);
-			if (res >= 0 || errno != EAGAIN) {
-				e.done->result = res >= 0 ? res : -errno;
-				m_done_callbacks.push_back(e.done);
-				return true;
-			}
-			return false;
+			if (res >= 0) {
+				e.done->result.clear();
+				e.done->result_size = res;
+			} else if (errno != EAGAIN) {
+				e.done->result = std::error_code(errno, std::system_category());
+			} else
+				return false;
+			m_done_callbacks.push_back(e.done);
+			return true;
 		}
 		case op::recv_from: {
 			if ((state & RDY_READ) == 0) return false;
@@ -248,18 +257,21 @@ namespace asyncpp::io::detail {
 			socklen_t sa_len = sizeof(sa);
 			auto res =
 				::recvfrom(e.socket, e.state.recv.buf, e.state.recv.len, 0, reinterpret_cast<sockaddr*>(&sa), &sa_len);
-			if (res >= 0 || errno != EAGAIN) {
-				e.done->result = res >= 0 ? res : -errno;
-				if (res >= 0 && e.state.recv_from.source) {
+			if (res >= 0) {
+				e.done->result.clear();
+				e.done->result_size = res;
+				if (e.state.recv_from.source) {
 					if (sa.ss_family == AF_INET || sa.ss_family == AF_INET6 || sa.ss_family == AF_UNIX)
 						*e.state.recv_from.source = endpoint(sa, sa_len);
 					else
 						*e.state.recv_from.source = endpoint{};
 				}
-				m_done_callbacks.push_back(e.done);
-				return true;
-			}
-			return false;
+			} else if (errno != EAGAIN) {
+				e.done->result = std::error_code(errno, std::system_category());
+			} else
+				return false;
+			m_done_callbacks.push_back(e.done);
+			return true;
 		}
 		default: return true;
 		}
@@ -274,12 +286,48 @@ namespace asyncpp::io::detail {
 #endif
 	}
 
+	io_engine::socket_handle_t io_engine_select::create_socket(address_type domain, int type) {
+		int afdomain = -1;
+		switch (domain) {
+		case address_type::ipv4: afdomain = AF_INET; break;
+		case address_type::ipv6: afdomain = AF_INET6; break;
+		case address_type::uds: afdomain = AF_UNIX; break;
+		}
+		if (afdomain == -1) throw std::system_error(ENOTSUP, std::system_category());
+#ifdef __APPLE__
+		auto fd = ::socket(afdomain, type, 0);
+		if (fd < 0) throw std::system_error(errno, std::system_category(), "select failed");
+		int flags = fcntl(fd, F_GETFL, 0);
+		if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0 || fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+			close(fd);
+			throw std::system_error(errno, std::system_category(), "fcntl failed");
+		}
+#else
+		auto fd = ::socket(afdomain, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+		if (fd < 0) throw std::system_error(errno, std::system_category(), "select failed");
+#endif
+		if (domain == address_type::ipv6) {
+			int opt = 0;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) < 0) {
+				close(fd);
+				throw std::system_error(errno, std::system_category(), "setsockopt failed");
+			}
+		}
+		return fd;
+	}
+
+	void io_engine_select::socket_bind(socket_handle_t socket, endpoint ep) {
+		auto sa = ep.to_sockaddr();
+		auto res = ::bind(socket, reinterpret_cast<sockaddr*>(&sa.first), sa.second);
+		if (res < 0) throw std::system_error(errno, std::system_category(), "select failed");
+	}
+
 	bool io_engine_select::enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) {
 		auto sa = ep.to_sockaddr();
 		auto res = ::connect(socket, reinterpret_cast<sockaddr*>(&sa.first), sa.second);
 		if (res == 0 || errno != EINPROGRESS) {
 			// Succeeded right away
-			cd->result = res ? -errno : 0;
+			cd->result = std::error_code(res ? errno : 0, std::system_category());
 			return true;
 		}
 
@@ -295,8 +343,12 @@ namespace asyncpp::io::detail {
 
 	bool io_engine_select::enqueue_accept(socket_handle_t socket, completion_data* cd) {
 		auto res = ::accept(socket, nullptr, nullptr);
-		if (res >= 0 || errno != EAGAIN) {
-			cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_handle = res;
+			return true;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
 			return true;
 		}
 
@@ -312,8 +364,12 @@ namespace asyncpp::io::detail {
 
 	bool io_engine_select::enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) {
 		auto res = ::recv(socket, buf, len, 0);
-		if (res >= 0 || errno != EAGAIN) {
-			cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+			return true;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
 			return true;
 		}
 
@@ -335,11 +391,11 @@ namespace asyncpp::io::detail {
 			len -= res;
 			buf = static_cast<const uint8_t*>(buf) + res;
 		} else if (errno != EAGAIN) {
-			cd->result = -errno;
+			cd->result = std::error_code(errno, std::system_category());
 			return true;
 		}
 		if (len == 0) {
-			cd->result = 0;
+			cd->result.clear();
 			return true;
 		}
 
@@ -360,14 +416,18 @@ namespace asyncpp::io::detail {
 		sockaddr_storage sa;
 		socklen_t sa_len = sizeof(sa);
 		auto res = ::recvfrom(socket, buf, len, 0, reinterpret_cast<sockaddr*>(&sa), &sa_len);
-		if (res >= 0 || errno != EAGAIN) {
-			cd->result = res >= 0 ? res : -errno;
-			if (res >= 0 && source) {
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+			if (source != nullptr) {
 				if (sa.ss_family == AF_INET || sa.ss_family == AF_INET6)
 					*source = endpoint(sa, sa_len);
 				else
 					*source = endpoint{};
 			}
+			return true;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
 			return true;
 		}
 
@@ -388,8 +448,12 @@ namespace asyncpp::io::detail {
 										   completion_data* cd) {
 		auto sa = dst.to_sockaddr();
 		auto res = ::sendto(socket, buf, len, 0, reinterpret_cast<sockaddr*>(&sa.first), sa.second);
-		if (res >= 0 || errno != EAGAIN) {
-			cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+			return true;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
 			return true;
 		}
 
@@ -409,7 +473,12 @@ namespace asyncpp::io::detail {
 	bool io_engine_select::enqueue_readv(file_handle_t fd, void* buf, size_t len, off_t offset, completion_data* cd) {
 		// There is no way to do async file io on linux without uring, so just do the read inline
 		auto res = pread(fd, buf, len, offset);
-		cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
+		}
 		return true;
 	}
 
@@ -417,7 +486,12 @@ namespace asyncpp::io::detail {
 										  completion_data* cd) {
 		// There is no way to do async file io on linux without uring, so just do the write inline
 		auto res = pwrite(fd, buf, len, offset);
-		cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
+		}
 		return true;
 	}
 
@@ -428,7 +502,12 @@ namespace asyncpp::io::detail {
 #else
 		auto res = fsync(fd);
 #endif
-		cd->result = res >= 0 ? res : -errno;
+		if (res >= 0) {
+			cd->result.clear();
+			cd->result_size = res;
+		} else if (errno != EAGAIN) {
+			cd->result = std::error_code(errno, std::system_category());
+		}
 		return true;
 	}
 
@@ -438,7 +517,7 @@ namespace asyncpp::io::detail {
 			if (it->done == cd) {
 				it = m_inflight.erase(it);
 				lck.unlock();
-				cd->result = -ECANCELED;
+				cd->result = std::error_code(ECANCELED, std::system_category());
 				cd->callback(cd->userdata);
 				return true;
 			}
@@ -447,3 +526,5 @@ namespace asyncpp::io::detail {
 	}
 
 } // namespace asyncpp::io::detail
+
+#endif

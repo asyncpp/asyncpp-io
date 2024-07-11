@@ -22,7 +22,7 @@ namespace asyncpp::io {
 	file::file(file&& other) noexcept
 		: m_io(std::exchange(other.m_io, nullptr)),
 		  m_fd(std::exchange(other.m_fd, detail::io_engine::invalid_file_handle)) {}
-	file& file::operator=(file&& other) {
+	file& file::operator=(file&& other) noexcept {
 		close();
 		m_io = std::exchange(other.m_io, nullptr);
 		m_fd = std::exchange(other.m_fd, detail::io_engine::invalid_file_handle);
@@ -50,7 +50,7 @@ namespace asyncpp::io {
 		if ((mode & std::ios_base::out) == std::ios_base::out) access_mode |= GENERIC_WRITE;
 		if ((mode & (std::ios_base::in | std::ios_base::out)) == 0)
 			throw std::invalid_argument("neither std::ios::in, nor std::ios::out was specified");
-		HANDLE h = CreateFileA(filename, access_mode, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+		HANDLE res = CreateFileA(filename, access_mode, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 		// TODO: Remaining code
 #endif
 		close();
@@ -83,14 +83,19 @@ namespace asyncpp::io {
 #ifdef __APPLE__
 		struct stat info {};
 		auto res = fstat(m_fd, &info);
+		if (res < 0) throw std::system_error(errno, std::system_category());
+		return info.st_size;
 #elif defined(_WIN32)
-		struct _stat64 info {};
-		auto res = _fstat64(m_fd, &info);
+		DWORD high;
+		auto res = GetFileSize(m_fd, &high);
+		if (res == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+			throw std::system_error(GetLastError(), std::system_category());
+		return (static_cast<uint64_t>(high) << 32) + res;
 #else
 		struct stat64 info {};
 		auto res = fstat64(m_fd, &info);
-#endif
 		if (res < 0) throw std::system_error(errno, std::system_category());
 		return info.st_size;
+#endif
 	}
 } // namespace asyncpp::io
