@@ -10,6 +10,7 @@ namespace asyncpp::io::detail {
 #include <mutex>
 
 #include <asm/unistd_64.h>
+#include <fcntl.h>
 #include <liburing.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
