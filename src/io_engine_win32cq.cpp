@@ -47,7 +47,6 @@ namespace asyncpp::io::detail {
 
 	struct win32cq_engine_state {
 		WSAOVERLAPPED overlapped;
-		bool is_socket_op = true;
 		HANDLE handle = io_engine::invalid_file_handle;
 		SOCKET accept_sock = INVALID_SOCKET;
 		union {
@@ -137,14 +136,14 @@ namespace asyncpp::io::detail {
 		DWORD num_transfered;
 		ULONG_PTR key;
 		LPOVERLAPPED overlapped;
-		if (GetQueuedCompletionStatus(m_completion_port, &num_transfered, &key, &overlapped, timeout) == FALSE && overlapped == nullptr) {
+		if (GetQueuedCompletionStatus(m_completion_port, &num_transfered, &key, &overlapped, timeout) == FALSE &&
+			overlapped == nullptr) {
 			return m_inflight_count;
 		}
 		if (key == 1) return m_inflight_count;
 		m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
 		auto state = reinterpret_cast<win32cq_engine_state*>(overlapped);
 		auto cd = reinterpret_cast<completion_data*>(overlapped);
-		printf("got cs %lu %llu %p\n", num_transfered, key, state);
 
 		DWORD num_bytes, flags;
 		auto res = GetOverlappedResult(state->handle, &state->overlapped, &num_bytes, FALSE);
@@ -174,8 +173,7 @@ namespace asyncpp::io::detail {
 			case WSA_INVALID_HANDLE:
 			case WSA_INVALID_PARAMETER:
 			case WSA_IO_INCOMPLETE:
-			case WSAEFAULT:
-				throw std::system_error(err, std::system_category(), "WSAGetOverlappedResult failed");
+			case WSAEFAULT: throw std::system_error(err, std::system_category(), "GetOverlappedResult failed");
 			default: cd->result = std::error_code(err, std::system_category());
 			}
 		}
@@ -303,26 +301,33 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_win32cq::enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) {
-		printf("enqueue_connect\n");
 		auto sa = ep.to_sockaddr();
 		LPFN_CONNECTEX lpfnConnectex = nullptr;
 		GUID b = WSAID_CONNECTEX;
 		DWORD n;
-		WSAIoctl(socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &b, sizeof(b), &lpfnConnectex, sizeof(lpfnConnectex), &n,
-				 NULL, NULL);
+		if (WSAIoctl(socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &b, sizeof(b), &lpfnConnectex, sizeof(lpfnConnectex),
+					 &n, NULL, NULL) == SOCKET_ERROR) {
+			cd->result = std::error_code(WSAGetLastError(), std::system_category());
+			return true;
+		}
 
 		// ConnectEx requires the socket to be bound
 		{
 			WSAPROTOCOL_INFO info{};
 			int optlen = sizeof(info);
 			if (getsockopt(socket, SOL_SOCKET, SO_PROTOCOL_INFO, reinterpret_cast<char*>(&info), &optlen) ==
-				SOCKET_ERROR)
-				throw std::system_error(WSAGetLastError(), std::system_category());
+				SOCKET_ERROR) {
+				cd->result = std::error_code(WSAGetLastError(), std::system_category());
+				return true;
+			}
 			sockaddr_storage addr{};
 			addr.ss_family = info.iAddressFamily;
 			INETADDR_SETANY(reinterpret_cast<sockaddr*>(&addr));
 			auto res = ::bind(socket, reinterpret_cast<sockaddr*>(&addr), (int)INET_SOCKADDR_LENGTH(addr.ss_family));
-			if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category());
+			if (res < 0) {
+				cd->result = std::error_code(WSAGetLastError(), std::system_category());
+				return true;
+			}
 		}
 
 		auto state = cd->es_init<win32cq_engine_state>();
@@ -330,24 +335,18 @@ namespace asyncpp::io::detail {
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
 		if (lpfnConnectex(socket, reinterpret_cast<const sockaddr*>(&sa.first), sa.second, nullptr, 0, nullptr,
-						  &state->overlapped) == TRUE) {
-			printf("=> true\n");
+						  &state->overlapped) == TRUE ||
+			WSAGetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_accept(socket_handle_t socket, completion_data* cd) {
-		printf("enqueue_accept\n");
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = (HANDLE)socket;
 
@@ -368,15 +367,14 @@ namespace asyncpp::io::detail {
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
 		DWORD received;
 		if (AcceptEx(socket, state->accept_sock, state->accept_buffer.data(), 0, sizeof(sockaddr_in6) + 16,
-					 sizeof(sockaddr_in6) + 16, &received, &state->overlapped) == TRUE) {
-			printf("=> true\n");
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
+					 sizeof(sockaddr_in6) + 16, &received, &state->overlapped) == TRUE ||
+			WSAGetLastError() == WSA_IO_PENDING) {
+			// IOCP always pushes even if it finishes synchronously
+			return false;
 		} else {
 			closesocket(state->accept_sock);
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 
@@ -384,8 +382,6 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_win32cq::enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) {
-		printf("enqueue_recv\n");
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = (HANDLE)socket;
 
@@ -395,24 +391,18 @@ namespace asyncpp::io::detail {
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
 		DWORD flags = 0;
-		if (WSARecv(socket, &buffer, 1, nullptr, &flags, &state->overlapped, nullptr) == 0) {
-			printf("=> true\n");
+		if (WSARecv(socket, &buffer, 1, nullptr, &flags, &state->overlapped, nullptr) == 0 ||
+			WSAGetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_send(socket_handle_t socket, const void* buf, size_t len, completion_data* cd) {
-		printf("enqueue_send\n");
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = (HANDLE)socket;
 
@@ -421,25 +411,19 @@ namespace asyncpp::io::detail {
 		buffer.len = len;
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
-		if (WSASend(socket, &buffer, 1, nullptr, 0, &state->overlapped, nullptr) == 0) {
-			printf("=> true\n");
+		if (WSASend(socket, &buffer, 1, nullptr, 0, &state->overlapped, nullptr) == 0 ||
+			WSAGetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_recv_from(socket_handle_t socket, void* buf, size_t len, endpoint* source,
 											  completion_data* cd) {
-		printf("enqueue_recv_from\n");
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = (HANDLE)socket;
 		memset(&state->recv_from_sa, 0, sizeof(state->recv_from_sa));
@@ -453,26 +437,19 @@ namespace asyncpp::io::detail {
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
 		if (WSARecvFrom(socket, &buffer, 1, nullptr, &flags, reinterpret_cast<sockaddr*>(&state->recv_from_sa),
-						&state->recv_from_sa_len,
-					  &state->overlapped, nullptr) == 0) {
-			printf("=> true\n");
+						&state->recv_from_sa_len, &state->overlapped, nullptr) == 0 ||
+			WSAGetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
 											completion_data* cd) {
-		printf("enqueue_send_to\n");
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = (HANDLE)socket;
 
@@ -484,17 +461,13 @@ namespace asyncpp::io::detail {
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
 		if (WSASendTo(socket, &buffer, 1, nullptr, 0, reinterpret_cast<const sockaddr*>(&sa.first), sa.second,
-					  &state->overlapped, nullptr) == 0) {
-			printf("=> true\n");
+					  &state->overlapped, nullptr) == 0 ||
+			WSAGetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (WSAGetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(WSAGetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", WSAGetLastError());
 			return true;
 		}
 	}
@@ -506,8 +479,7 @@ namespace asyncpp::io::detail {
 		if ((mode & (std::ios_base::in | std::ios_base::out | std::ios_base::app)) == 0)
 			throw std::invalid_argument("neither std::ios::in, nor std::ios::out was specified");
 		HANDLE res = CreateFileA(filename, access_mode, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-								 OPEN_ALWAYS,
-								 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+								 OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
 		if (res == INVALID_HANDLE_VALUE) throw std::system_error(GetLastError(), std::system_category());
 		if ((mode & std::ios_base::trunc) == std::ios_base::trunc) {
 			if (SetEndOfFile(res) == FALSE) {
@@ -560,57 +532,41 @@ namespace asyncpp::io::detail {
 
 	bool io_engine_win32cq::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset,
 										  completion_data* cd) {
-		printf("enqueue_readv %p\n", cd);
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
 		state->overlapped.OffsetHigh = offset >> 32;
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
-		if (ReadFile(fd, buf, len, nullptr, &state->overlapped) == TRUE) {
-			printf("=> true\n");
+		if (ReadFile(fd, buf, len, nullptr, &state->overlapped) == TRUE || GetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (GetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(GetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", GetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
 										   completion_data* cd) {
-		printf("enqueue_writev %p\n", cd);
-
 		auto state = cd->es_init<win32cq_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
 		state->overlapped.OffsetHigh = offset >> 32;
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
-		if (WriteFile(fd, buf, len, nullptr, &state->overlapped) == TRUE) {
-			printf("=> true\n");
+		if (WriteFile(fd, buf, len, nullptr, &state->overlapped) == TRUE || GetLastError() == WSA_IO_PENDING) {
 			// IOCP always pushes even if it finishes synchronously
-			return false;
-		} else if (GetLastError() == WSA_IO_PENDING) {
-			printf("=> pending\n");
 			return false;
 		} else {
 			cd->result = std::error_code(GetLastError(), std::system_category());
 			m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-			printf("=> false err=%d\n", GetLastError());
 			return true;
 		}
 	}
 
 	bool io_engine_win32cq::enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) {
-		printf("enqueue_fsync %p\n", cd);
-
 		// Looks like there is no async version of this
 		if (FlushFileBuffers(fd) == FALSE)
 			cd->result = std::error_code(GetLastError(), std::system_category());
@@ -620,7 +576,6 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_win32cq::cancel(completion_data* cd) {
-		printf("cancel %p\n", cd);
 		auto state = cd->es_get<win32cq_engine_state>();
 		auto res = CancelIoEx(state->handle, &state->overlapped);
 		return res == TRUE;
