@@ -22,11 +22,11 @@ namespace asyncpp::io::detail {
 			else if (!engine.empty())
 				throw std::runtime_error("unknown io engine " + std::string(engine));
 		}
-		#ifdef _WIN32
+#ifdef _WIN32
 		return create_io_engine_win32cq();
-		#else
+#else
 		if (auto uring = create_io_engine_uring(); uring != nullptr) return uring;
 		return create_io_engine_select();
-		#endif
+#endif
 	}
 } // namespace asyncpp::io::detail

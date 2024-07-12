@@ -93,7 +93,8 @@ namespace asyncpp::io::detail {
 		void file_close(file_handle_t fd) override;
 		uint64_t file_size(file_handle_t fd) override;
 		bool enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) override;
-		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset, completion_data* cd) override;
+		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
+							completion_data* cd) override;
 		bool enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) override;
 
 		bool cancel(completion_data* cd) override;
@@ -581,7 +582,8 @@ namespace asyncpp::io::detail {
 #endif
 	}
 
-	bool io_engine_select::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) {
+	bool io_engine_select::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset,
+										 completion_data* cd) {
 		// There is no way to do async file io on linux without uring, so just do the read inline
 		auto res = pread(fd, buf, len, offset);
 		if (res >= 0) {

@@ -102,8 +102,8 @@ namespace asyncpp::io {
 			detail::io_engine::completion_data m_completion;
 
 		public:
-			file_read_awaitable(io_engine* engine, io_engine::file_handle_t fd, void* buf, size_t len,
-										  uint64_t offset, std::error_code* ec) noexcept
+			file_read_awaitable(io_engine* engine, io_engine::file_handle_t fd, void* buf, size_t len, uint64_t offset,
+								std::error_code* ec) noexcept
 				: m_engine(engine), m_fd(fd), m_buf(buf), m_len(len), m_offset(offset), m_ec(ec), m_completion{} {}
 			bool await_ready() const noexcept { return false; }
 			bool await_suspend(coroutine_handle<> hdl) {
@@ -113,8 +113,7 @@ namespace asyncpp::io {
 			}
 			size_t await_resume() {
 				if (!m_completion.result) return m_completion.result_size;
-				if (m_ec == nullptr)
-					throw std::system_error(m_completion.result);
+				if (m_ec == nullptr) throw std::system_error(m_completion.result);
 				*m_ec = m_completion.result;
 				return 0;
 			}
@@ -141,7 +140,7 @@ namespace asyncpp::io {
 
 		public:
 			file_write_awaitable(io_engine* engine, io_engine::file_handle_t fd, const void* buf, size_t len,
-										   uint64_t offset, std::error_code* ec) noexcept
+								 uint64_t offset, std::error_code* ec) noexcept
 				: m_engine(engine), m_fd(fd), m_buf(buf), m_len(len), m_offset(offset), m_ec(ec), m_completion{} {}
 			bool await_ready() const noexcept { return false; }
 			bool await_suspend(coroutine_handle<> hdl) {
@@ -151,8 +150,7 @@ namespace asyncpp::io {
 			}
 			size_t await_resume() {
 				if (!m_completion.result) return m_completion.result_size;
-				if (m_ec == nullptr)
-					throw std::system_error(m_completion.result);
+				if (m_ec == nullptr) throw std::system_error(m_completion.result);
 				*m_ec = m_completion.result;
 				return 0;
 			}
@@ -185,8 +183,7 @@ namespace asyncpp::io {
 			}
 			void await_resume() {
 				if (!m_completion.result) return;
-				if (m_ec == nullptr)
-					throw std::system_error(m_completion.result);
+				if (m_ec == nullptr) throw std::system_error(m_completion.result);
 				*m_ec = m_completion.result;
 			}
 		};

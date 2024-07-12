@@ -102,7 +102,7 @@ namespace asyncpp::io {
 
 		[[nodiscard]] detail::io_engine::socket_handle_t native_handle() const noexcept { return m_fd; }
 		[[nodiscard]] detail::io_engine::socket_handle_t release() noexcept {
-			if(m_io != nullptr && m_fd != detail::io_engine::invalid_socket_handle)
+			if (m_io != nullptr && m_fd != detail::io_engine::invalid_socket_handle)
 				m_io->engine()->socket_release(m_fd);
 			m_io = nullptr;
 			m_remote_ep = {};
@@ -115,21 +115,19 @@ namespace asyncpp::io {
 		[[nodiscard]] socket_accept_awaitable accept() noexcept;
 		[[nodiscard]] socket_accept_error_code_awaitable accept(std::error_code& ec) noexcept;
 		[[nodiscard]] socket_send_awaitable send(const void* buffer, std::size_t size) noexcept;
-		[[nodiscard]] socket_send_awaitable send(const void* buffer, std::size_t size,
-														   std::error_code& ec) noexcept;
+		[[nodiscard]] socket_send_awaitable send(const void* buffer, std::size_t size, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_awaitable recv(void* buffer, std::size_t size) noexcept;
-		[[nodiscard]] socket_recv_awaitable recv(void* buffer, std::size_t size,
-														   std::error_code& ec) noexcept;
+		[[nodiscard]] socket_recv_awaitable recv(void* buffer, std::size_t size, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_exact_awaitable recv_exact(void* buffer, std::size_t size) noexcept;
 		[[nodiscard]] socket_recv_exact_awaitable recv_exact(void* buffer, std::size_t size,
-																	   std::error_code& ec) noexcept;
+															 std::error_code& ec) noexcept;
 		[[nodiscard]] socket_send_to_awaitable send_to(const void* buffer, std::size_t size,
-																 const endpoint& dst_ep) noexcept;
-		[[nodiscard]] socket_send_to_awaitable send_to(const void* buffer, std::size_t size,
-																 const endpoint& dst_ep, std::error_code& ec) noexcept;
+													   const endpoint& dst_ep) noexcept;
+		[[nodiscard]] socket_send_to_awaitable send_to(const void* buffer, std::size_t size, const endpoint& dst_ep,
+													   std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_from_awaitable recv_from(void* buffer, std::size_t size) noexcept;
 		[[nodiscard]] socket_recv_from_awaitable recv_from(void* buffer, std::size_t size,
-																	 std::error_code& ec) noexcept;
+														   std::error_code& ec) noexcept;
 
 		[[nodiscard]] socket_connect_cancellable_awaitable connect(const endpoint& ep, asyncpp::stop_token st) noexcept;
 		[[nodiscard]] socket_connect_cancellable_awaitable connect(const endpoint& ep, asyncpp::stop_token st,
@@ -249,7 +247,7 @@ namespace asyncpp::io {
 
 	public:
 		socket_send_awaitable(socket& sock, const void* buffer, std::size_t size,
-										std::error_code* ec = nullptr) noexcept
+							  std::error_code* ec = nullptr) noexcept
 			: socket_awaitable_base{sock}, m_buffer{buffer}, m_size{size}, m_ec{ec} {}
 		bool await_suspend(coroutine_handle<> hdl);
 		void await_resume();
@@ -261,8 +259,7 @@ namespace asyncpp::io {
 		std::error_code* const m_ec;
 
 	public:
-		socket_recv_awaitable(socket& sock, void* buffer, std::size_t size,
-										std::error_code* ec = nullptr) noexcept
+		socket_recv_awaitable(socket& sock, void* buffer, std::size_t size, std::error_code* ec = nullptr) noexcept
 			: socket_awaitable_base{sock}, m_buffer{buffer}, m_size{size}, m_ec{ec} {}
 		bool await_suspend(coroutine_handle<> hdl);
 		size_t await_resume();
@@ -277,7 +274,7 @@ namespace asyncpp::io {
 
 	public:
 		socket_recv_exact_awaitable(asyncpp::io::socket& sock, void* buffer, std::size_t size,
-											  std::error_code* ec = nullptr) noexcept
+									std::error_code* ec = nullptr) noexcept
 			: socket_awaitable_base{sock}, m_buffer{static_cast<unsigned char*>(buffer)}, m_size{size},
 			  m_remaining{size}, m_ec{ec} {}
 		bool await_suspend(asyncpp::coroutine_handle<> hdl);
@@ -309,7 +306,7 @@ namespace asyncpp::io {
 
 	public:
 		socket_send_to_awaitable(socket& sock, const void* buffer, std::size_t size, endpoint dst,
-										   std::error_code* ec = nullptr) noexcept
+								 std::error_code* ec = nullptr) noexcept
 			: socket_awaitable_base{sock}, m_buffer{buffer}, m_size{size}, m_destination{dst}, m_ec{ec} {}
 		bool await_suspend(coroutine_handle<> hdl);
 		size_t await_resume();
@@ -322,8 +319,7 @@ namespace asyncpp::io {
 		std::error_code* const m_ec;
 
 	public:
-		socket_recv_from_awaitable(socket& sock, void* buffer, std::size_t size,
-											 std::error_code* ec = nullptr) noexcept
+		socket_recv_from_awaitable(socket& sock, void* buffer, std::size_t size, std::error_code* ec = nullptr) noexcept
 			: socket_awaitable_base{sock}, m_buffer{buffer}, m_size{size}, m_ec{ec} {}
 		bool await_suspend(coroutine_handle<> hdl);
 		std::pair<size_t, endpoint> await_resume();
@@ -333,14 +329,11 @@ namespace asyncpp::io {
 		return socket_connect_awaitable(*this, ep);
 	}
 
-	[[nodiscard]] inline socket_connect_awaitable socket::connect(const endpoint& ep,
-																			std::error_code& ec) noexcept {
+	[[nodiscard]] inline socket_connect_awaitable socket::connect(const endpoint& ep, std::error_code& ec) noexcept {
 		return socket_connect_awaitable(*this, ep, &ec);
 	}
 
-	[[nodiscard]] inline socket_accept_awaitable socket::accept() noexcept {
-		return socket_accept_awaitable(*this);
-	}
+	[[nodiscard]] inline socket_accept_awaitable socket::accept() noexcept { return socket_accept_awaitable(*this); }
 
 	[[nodiscard]] inline socket_accept_error_code_awaitable socket::accept(std::error_code& ec) noexcept {
 		return socket_accept_error_code_awaitable(*this, ec);
@@ -351,7 +344,7 @@ namespace asyncpp::io {
 	}
 
 	[[nodiscard]] inline socket_send_awaitable socket::send(const void* buffer, std::size_t size,
-																	  std::error_code& ec) noexcept {
+															std::error_code& ec) noexcept {
 		return socket_send_awaitable(*this, buffer, size, &ec);
 	}
 
@@ -360,22 +353,21 @@ namespace asyncpp::io {
 	}
 
 	[[nodiscard]] inline socket_recv_awaitable socket::recv(void* buffer, std::size_t size,
-																	  std::error_code& ec) noexcept {
+															std::error_code& ec) noexcept {
 		return socket_recv_awaitable(*this, buffer, size, &ec);
 	}
 
-	[[nodiscard]] inline socket_recv_exact_awaitable socket::recv_exact(void* buffer,
-																				  std::size_t size) noexcept {
+	[[nodiscard]] inline socket_recv_exact_awaitable socket::recv_exact(void* buffer, std::size_t size) noexcept {
 		return socket_recv_exact_awaitable(*this, buffer, size);
 	}
 
 	[[nodiscard]] inline socket_recv_exact_awaitable socket::recv_exact(void* buffer, std::size_t size,
-																				  std::error_code& ec) noexcept {
+																		std::error_code& ec) noexcept {
 		return socket_recv_exact_awaitable(*this, buffer, size, &ec);
 	}
 
 	[[nodiscard]] inline socket_send_to_awaitable socket::send_to(const void* buffer, std::size_t size,
-																			const endpoint& dst_ep) noexcept {
+																  const endpoint& dst_ep) noexcept {
 		return socket_send_to_awaitable(*this, buffer, size, dst_ep);
 	}
 
@@ -384,13 +376,12 @@ namespace asyncpp::io {
 		return socket_send_to_awaitable(*this, buffer, size, dst_ep, &ec);
 	}
 
-	[[nodiscard]] inline socket_recv_from_awaitable socket::recv_from(void* buffer,
-																				std::size_t size) noexcept {
+	[[nodiscard]] inline socket_recv_from_awaitable socket::recv_from(void* buffer, std::size_t size) noexcept {
 		return socket_recv_from_awaitable(*this, buffer, size);
 	}
 
 	[[nodiscard]] inline socket_recv_from_awaitable socket::recv_from(void* buffer, std::size_t size,
-																				std::error_code& ec) noexcept {
+																	  std::error_code& ec) noexcept {
 		return socket_recv_from_awaitable(*this, buffer, size, &ec);
 	}
 

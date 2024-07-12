@@ -20,9 +20,9 @@ TEST(ASYNCPP_IO, TLSRoundtrip) {
 	std::cout.sync_with_stdio(true);
 	// Generate cert if missing
 	if (!std::filesystem::exists("ssl.crt") || !std::filesystem::exists("ssl.key")) {
-		#ifdef _WIN32
+#ifdef _WIN32
 		GTEST_SKIP() << "Can not generate certs on windows";
-		#endif
+#endif
 		std::cout << "Generating temporary cert..." << std::endl;
 		system("openssl req -x509 -newkey rsa:2048 -keyout ssl.key -out ssl.crt -sha256 -days 2 -nodes -subj "
 			   "\"/C=XX/ST=StateName/L=SomeCity/O=ASYNCPP/OU=ASYNCPP-TEST/CN=server1\"");

@@ -6,10 +6,11 @@ namespace asyncpp::io::detail {
 } // namespace asyncpp::io::detail
 #else
 
-#include <asm/unistd_64.h>
 #include <cstring>
-#include <liburing.h>
 #include <mutex>
+
+#include <asm/unistd_64.h>
+#include <liburing.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -54,7 +55,8 @@ namespace asyncpp::io::detail {
 		void file_close(file_handle_t fd) override;
 		uint64_t file_size(file_handle_t fd) override;
 		bool enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) override;
-		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset, completion_data* cd) override;
+		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
+							completion_data* cd) override;
 		bool enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) override;
 
 		bool cancel(completion_data* cd) override;
