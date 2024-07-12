@@ -43,7 +43,7 @@ add_library(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/tls.cpp)
 target_link_libraries(asyncpp_io PUBLIC asyncpp OpenSSL::SSL Threads::Threads)
 if(WIN32)
-  target_link_libraries(asyncpp_io PUBLIC wsock32 ws2_32)
+  target_link_libraries(asyncpp_io PUBLIC wsock32 ws2_32 ntdll)
 endif()
 target_include_directories(asyncpp_io
                            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

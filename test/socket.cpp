@@ -68,7 +68,7 @@ TEST(ASYNCPP_IO, SocketSelf) {
 		}(service, server, st));
 		// Connect to said server
 		auto client = socket::create_tcp(service, server.local_endpoint().type());
-		co_await client.connect(server.local_endpoint(), st);
+		co_await client.connect(endpoint(ipv4_address::loopback(), server.local_endpoint().ipv4().port()), st);
 		// and read until connection is closed
 		while (true) {
 			char buf[128];
@@ -114,7 +114,7 @@ TEST(ASYNCPP_IO, SocketValid) {
 	ASSERT_TRUE(sock2.valid());
 	auto fd = sock2.release();
 	ASSERT_FALSE(sock2);
-	close(fd);
+	service->engine()->socket_close(fd);
 }
 
 #ifdef __linux__

@@ -102,10 +102,12 @@ namespace asyncpp::io {
 
 		[[nodiscard]] detail::io_engine::socket_handle_t native_handle() const noexcept { return m_fd; }
 		[[nodiscard]] detail::io_engine::socket_handle_t release() noexcept {
+			if(m_io != nullptr && m_fd != detail::io_engine::invalid_socket_handle)
+				m_io->engine()->socket_release(m_fd);
 			m_io = nullptr;
 			m_remote_ep = {};
 			m_local_ep = {};
-			return std::exchange(m_fd, -1);
+			return std::exchange(m_fd, detail::io_engine::invalid_socket_handle);
 		}
 
 		[[nodiscard]] socket_connect_awaitable connect(const endpoint& ep) noexcept;

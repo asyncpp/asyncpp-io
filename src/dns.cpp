@@ -813,6 +813,9 @@ namespace asyncpp::io::dns {
 	client::client(asyncpp::io::io_service& service)
 		: m_socket_ipv4(socket::create_udp(service, address_type::ipv4)),
 		  m_socket_ipv6(socket::create_udp(service, address_type::ipv6)) {
+		// Required for windows
+		m_socket_ipv4.bind({ipv4_address::any(), 0});
+		m_socket_ipv6.bind({ipv6_address::any(), 0});
 		launch([](client* that) -> task<> {
 			auto token = that->m_stop.get_token();
 			std::array<std::byte, 64 * 1024> buf;

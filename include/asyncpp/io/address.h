@@ -157,7 +157,7 @@ namespace asyncpp::io {
 
 		constexpr std::span<const uint8_t, 16> data() const noexcept { return m_data; }
 		constexpr std::span<const uint8_t, 4> ipv4_data() const noexcept {
-			return std::span<const uint8_t, 4>{&m_data[12], &m_data[15]};
+			return std::span<const uint8_t, 4>{&m_data[12], &m_data[12] + 4};
 		}
 
 		constexpr uint64_t subnet_prefix() const noexcept {
@@ -189,7 +189,7 @@ namespace asyncpp::io {
 		}
 		constexpr ipv4_address mapped_ipv4() const noexcept {
 			if (!is_ipv4_mapped()) return ipv4_address();
-			return ipv4_address(std::span<const uint8_t, 4>(&m_data[12], &m_data[15]));
+			return ipv4_address(std::span<const uint8_t, 4>(&m_data[12], &m_data[12] + 4));
 		}
 
 		std::string to_string(bool full = false) const {
@@ -249,7 +249,7 @@ namespace asyncpp::io {
 			auto it = str.begin();
 			auto part_start = it;
 			bool is_v4_interop = false;
-			if (*it == ':') {
+			if (it != str.end() && *it == ':') {
 				dcidx = idx++;
 				it++;
 				if (it == str.end() || *it != ':') return std::nullopt;
