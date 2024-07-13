@@ -72,7 +72,7 @@ namespace asyncpp::io::detail {
 		if (socketpair(afdomain, stype | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socks) != 0)
 			throw std::system_error(errno, std::system_category(), "socket failed");
 #else
-		if (socketpair(domain, stype, 0, socks) != 0)
+		if (socketpair(afdomain, stype, 0, socks) != 0)
 			throw std::system_error(errno, std::system_category(), "socket failed");
 		int flags0 = fcntl(socks[0], F_GETFL, 0);
 		int flags1 = fcntl(socks[1], F_GETFL, 0);
@@ -158,7 +158,9 @@ namespace asyncpp::io::detail {
 		return res;
 	}
 
-	void io_engine_generic_unix::file_close(file_handle_t fd) { if(fd >= 0) ::close(fd); }
+	void io_engine_generic_unix::file_close(file_handle_t fd) {
+		if (fd >= 0) ::close(fd);
+	}
 
 	uint64_t io_engine_generic_unix::file_size(file_handle_t fd) {
 #ifdef __APPLE__

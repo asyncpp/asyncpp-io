@@ -2,7 +2,7 @@
 
 #ifndef _WIN32
 namespace asyncpp::io::detail {
-	std::unique_ptr<io_engine> create_io_engine_win32cq() { return nullptr; }
+	std::unique_ptr<io_engine> create_io_engine_iocp() { return nullptr; }
 } // namespace asyncpp::io::detail
 #else
 
@@ -45,7 +45,7 @@ NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(IN HANDLE FileHandle, OUT PIO_STATU
 
 namespace asyncpp::io::detail {
 
-	struct win32cq_engine_state {
+	struct iocp_engine_state {
 		WSAOVERLAPPED overlapped;
 		HANDLE handle = io_engine::invalid_file_handle;
 		SOCKET accept_sock = INVALID_SOCKET;
@@ -58,15 +58,15 @@ namespace asyncpp::io::detail {
 			};
 		};
 	};
-	static_assert(offsetof(win32cq_engine_state, overlapped) == 0,
+	static_assert(offsetof(iocp_engine_state, overlapped) == 0,
 				  "Code assumes that overlapped is at the start of engine_data");
 
-	class io_engine_win32cq : public io_engine {
+	class io_engine_iocp : public io_engine {
 	public:
-		io_engine_win32cq();
-		io_engine_win32cq(const io_engine_win32cq&) = delete;
-		io_engine_win32cq& operator=(const io_engine_win32cq&) = delete;
-		~io_engine_win32cq();
+		io_engine_iocp();
+		io_engine_iocp(const io_engine_iocp&) = delete;
+		io_engine_iocp& operator=(const io_engine_iocp&) = delete;
+		~io_engine_iocp();
 
 		std::string_view name() const noexcept override;
 
@@ -111,9 +111,9 @@ namespace asyncpp::io::detail {
 		std::atomic<size_t> m_inflight_count{};
 	};
 
-	std::unique_ptr<io_engine> create_io_engine_win32cq() { return std::make_unique<io_engine_win32cq>(); }
+	std::unique_ptr<io_engine> create_io_engine_iocp() { return std::make_unique<io_engine_iocp>(); }
 
-	io_engine_win32cq::io_engine_win32cq() {
+	io_engine_iocp::io_engine_iocp() {
 		WSADATA wsaData;
 		if (int res = WSAStartup(MAKEWORD(2, 2), &wsaData); res != 0)
 			throw std::runtime_error("failed to initialize WSA");
@@ -124,14 +124,14 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	io_engine_win32cq::~io_engine_win32cq() {
+	io_engine_iocp::~io_engine_iocp() {
 		if (m_completion_port != INVALID_HANDLE_VALUE) CloseHandle(m_completion_port);
 		WSACleanup();
 	}
 
-	std::string_view io_engine_win32cq::name() const noexcept { return "win32cq"; }
+	std::string_view io_engine_iocp::name() const noexcept { return "iocp"; }
 
-	size_t io_engine_win32cq::run(bool nowait) {
+	size_t io_engine_iocp::run(bool nowait) {
 		DWORD timeout = 0;
 		if (!nowait) timeout = 10000;
 
@@ -144,7 +144,7 @@ namespace asyncpp::io::detail {
 		}
 		if (key == 1) return m_inflight_count;
 		m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
-		auto state = reinterpret_cast<win32cq_engine_state*>(overlapped);
+		auto state = reinterpret_cast<iocp_engine_state*>(overlapped);
 		auto cd = reinterpret_cast<completion_data*>(overlapped);
 
 		DWORD num_bytes, flags;
@@ -185,12 +185,12 @@ namespace asyncpp::io::detail {
 		return m_inflight_count;
 	}
 
-	void io_engine_win32cq::wake() {
+	void io_engine_iocp::wake() {
 		if (PostQueuedCompletionStatus(m_completion_port, 0, 1, NULL) == FALSE)
 			throw std::runtime_error("failed to wake cq");
 	}
 
-	io_engine::socket_handle_t io_engine_win32cq::socket_create(address_type domain, socket_type type) {
+	io_engine::socket_handle_t io_engine_iocp::socket_create(address_type domain, socket_type type) {
 		int afdomain = -1;
 		switch (domain) {
 		case address_type::ipv4: afdomain = AF_INET; break;
@@ -228,7 +228,7 @@ namespace asyncpp::io::detail {
 	}
 
 	std::pair<io_engine::socket_handle_t, io_engine::socket_handle_t>
-	io_engine_win32cq::socket_create_connected_pair(address_type domain, socket_type type) {
+	io_engine_iocp::socket_create_connected_pair(address_type domain, socket_type type) {
 		if (type != socket_type::stream)
 			throw std::system_error(std::make_error_code(std::errc::function_not_supported), "unsupported socket type");
 
@@ -285,7 +285,7 @@ namespace asyncpp::io::detail {
 		return {sock0, sock1};
 	}
 
-	void io_engine_win32cq::socket_register(socket_handle_t socket) {
+	void io_engine_iocp::socket_register(socket_handle_t socket) {
 		// Make socket non blocking (do we even need to do this ?)
 		u_long mode = 1;
 		if (ioctlsocket(socket, FIONBIO, &mode) == SOCKET_ERROR)
@@ -295,7 +295,7 @@ namespace asyncpp::io::detail {
 			throw std::system_error(GetLastError(), std::system_category(), "CreateIoCompletionPort failed");
 	}
 
-	void io_engine_win32cq::socket_release(socket_handle_t socket) {
+	void io_engine_iocp::socket_release(socket_handle_t socket) {
 		// Unhook the socket from our completion port
 		// Note: Dark magic ahead
 		_IO_STATUS_BLOCK status{};
@@ -304,23 +304,23 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::io_error), "NtSetInformationFile failed");
 	}
 
-	void io_engine_win32cq::socket_close(socket_handle_t socket) {
+	void io_engine_iocp::socket_close(socket_handle_t socket) {
 		if (socket != INVALID_SOCKET) closesocket(socket);
 	}
 
-	void io_engine_win32cq::socket_bind(socket_handle_t socket, endpoint ep) {
+	void io_engine_iocp::socket_bind(socket_handle_t socket, endpoint ep) {
 		auto sa = ep.to_sockaddr();
 		auto res = ::bind(socket, reinterpret_cast<sockaddr*>(&sa.first), sa.second);
 		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category());
 	}
 
-	void io_engine_win32cq::socket_listen(socket_handle_t socket, size_t backlog) {
+	void io_engine_iocp::socket_listen(socket_handle_t socket, size_t backlog) {
 		if (backlog == 0) backlog = 20;
 		auto res = ::listen(socket, backlog);
 		if (res == SOCKET_ERROR) throw std::system_error(WSAGetLastError(), std::system_category());
 	}
 
-	endpoint io_engine_win32cq::socket_local_endpoint(socket_handle_t socket) {
+	endpoint io_engine_iocp::socket_local_endpoint(socket_handle_t socket) {
 		sockaddr_storage sa;
 		int sa_size = sizeof(sa);
 		auto res = getsockname(socket, reinterpret_cast<sockaddr*>(&sa), &sa_size);
@@ -328,7 +328,7 @@ namespace asyncpp::io::detail {
 		throw std::system_error(WSAGetLastError(), std::system_category());
 	}
 
-	endpoint io_engine_win32cq::socket_remote_endpoint(socket_handle_t socket) {
+	endpoint io_engine_iocp::socket_remote_endpoint(socket_handle_t socket) {
 		sockaddr_storage sa;
 		int sa_size = sizeof(sa);
 		auto res = getpeername(socket, reinterpret_cast<sockaddr*>(&sa), &sa_size);
@@ -339,13 +339,13 @@ namespace asyncpp::io::detail {
 		return {};
 	}
 
-	void io_engine_win32cq::socket_enable_broadcast(socket_handle_t socket, bool enable) {
+	void io_engine_iocp::socket_enable_broadcast(socket_handle_t socket, bool enable) {
 		BOOL opt = enable ? TRUE : FALSE;
 		auto res = setsockopt(socket, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&opt), sizeof(opt));
 		if (res == SOCKET_ERROR) throw std::system_error(WSAGetLastError(), std::system_category());
 	}
 
-	void io_engine_win32cq::socket_shutdown(socket_handle_t socket, bool receive, bool send) {
+	void io_engine_iocp::socket_shutdown(socket_handle_t socket, bool receive, bool send) {
 		int mode = 0;
 		if (receive && send)
 			mode = SD_BOTH;
@@ -360,7 +360,7 @@ namespace asyncpp::io::detail {
 			throw std::system_error(WSAGetLastError(), std::system_category());
 	}
 
-	bool io_engine_win32cq::enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) {
+	bool io_engine_iocp::enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) {
 		auto sa = ep.to_sockaddr();
 		LPFN_CONNECTEX lpfnConnectex = nullptr;
 		GUID b = WSAID_CONNECTEX;
@@ -390,7 +390,7 @@ namespace asyncpp::io::detail {
 			}
 		}
 
-		auto state = cd->es_init<win32cq_engine_state>();
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
 		m_inflight_count.fetch_add(1, std::memory_order::relaxed);
@@ -406,8 +406,8 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_accept(socket_handle_t socket, completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+	bool io_engine_iocp::enqueue_accept(socket_handle_t socket, completion_data* cd) {
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
 		// Get the socket family to create a second socket for accepting
@@ -441,8 +441,8 @@ namespace asyncpp::io::detail {
 		return false;
 	}
 
-	bool io_engine_win32cq::enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+	bool io_engine_iocp::enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) {
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
 		WSABUF buffer;
@@ -462,8 +462,8 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_send(socket_handle_t socket, const void* buf, size_t len, completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+	bool io_engine_iocp::enqueue_send(socket_handle_t socket, const void* buf, size_t len, completion_data* cd) {
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
 		WSABUF buffer;
@@ -482,9 +482,9 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_recv_from(socket_handle_t socket, void* buf, size_t len, endpoint* source,
+	bool io_engine_iocp::enqueue_recv_from(socket_handle_t socket, void* buf, size_t len, endpoint* source,
 											  completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 		memset(&state->recv_from_sa, 0, sizeof(state->recv_from_sa));
 		state->recv_from_sa_len = sizeof(state->recv_from_sa);
@@ -508,9 +508,9 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
+	bool io_engine_iocp::enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
 											completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
 		auto sa = dst.to_sockaddr();
@@ -532,7 +532,7 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	io_engine::file_handle_t io_engine_win32cq::file_open(const char* filename, std::ios_base::openmode mode) {
+	io_engine::file_handle_t io_engine_iocp::file_open(const char* filename, std::ios_base::openmode mode) {
 		DWORD access_mode = 0;
 		if ((mode & std::ios_base::in) == std::ios_base::in) access_mode |= GENERIC_READ;
 		if ((mode & (std::ios_base::out | std::ios_base::app)) != 0) access_mode |= GENERIC_WRITE;
@@ -565,13 +565,13 @@ namespace asyncpp::io::detail {
 		return res;
 	}
 
-	void io_engine_win32cq::file_register(file_handle_t fd) {
+	void io_engine_iocp::file_register(file_handle_t fd) {
 		// Add file to completion port
 		if (CreateIoCompletionPort(fd, m_completion_port, 0, 0) == NULL)
 			throw std::system_error(GetLastError(), std::system_category(), "CreateIoCompletionPort failed");
 	}
 
-	void io_engine_win32cq::file_release(file_handle_t fd) {
+	void io_engine_iocp::file_release(file_handle_t fd) {
 		// Unhook the file from our completion port
 		// Note: Dark magic ahead
 		_IO_STATUS_BLOCK status{};
@@ -580,9 +580,9 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::io_error), "NtSetInformationFile failed");
 	}
 
-	void io_engine_win32cq::file_close(file_handle_t fd) { ::CloseHandle(fd); }
+	void io_engine_iocp::file_close(file_handle_t fd) { ::CloseHandle(fd); }
 
-	uint64_t io_engine_win32cq::file_size(file_handle_t fd) {
+	uint64_t io_engine_iocp::file_size(file_handle_t fd) {
 		DWORD high;
 		auto res = GetFileSize(fd, &high);
 		if (res == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
@@ -590,9 +590,9 @@ namespace asyncpp::io::detail {
 		return (static_cast<uint64_t>(high) << 32) + res;
 	}
 
-	bool io_engine_win32cq::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset,
+	bool io_engine_iocp::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset,
 										  completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
 		state->overlapped.OffsetHigh = offset >> 32;
@@ -608,9 +608,9 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
+	bool io_engine_iocp::enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
 										   completion_data* cd) {
-		auto state = cd->es_init<win32cq_engine_state>();
+		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
 		state->overlapped.OffsetHigh = offset >> 32;
@@ -626,7 +626,7 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	bool io_engine_win32cq::enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) {
+	bool io_engine_iocp::enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) {
 		// Looks like there is no async version of this
 		if (FlushFileBuffers(fd) == FALSE)
 			cd->result = std::error_code(GetLastError(), std::system_category());
@@ -635,8 +635,8 @@ namespace asyncpp::io::detail {
 		return true;
 	}
 
-	bool io_engine_win32cq::cancel(completion_data* cd) {
-		auto state = cd->es_get<win32cq_engine_state>();
+	bool io_engine_iocp::cancel(completion_data* cd) {
+		auto state = cd->es_get<iocp_engine_state>();
 		auto res = CancelIoEx(state->handle, &state->overlapped);
 		return res == TRUE;
 	}

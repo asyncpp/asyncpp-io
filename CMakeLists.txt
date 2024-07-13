@@ -37,7 +37,7 @@ add_library(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_generic_unix.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_select.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_uring.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_win32cq.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_iocp.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/socket.cpp
