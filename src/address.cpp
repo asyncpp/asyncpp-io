@@ -170,7 +170,9 @@ namespace asyncpp::io {
 		switch (m_type) {
 		case address_type::ipv4: return m_ipv4.to_sockaddr();
 		case address_type::ipv6: return m_ipv6.to_sockaddr();
+#ifndef _WIN32
 		case address_type::uds: return m_uds.to_sockaddr();
+#endif
 		}
 		return {};
 	}

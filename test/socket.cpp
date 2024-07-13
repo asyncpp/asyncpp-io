@@ -12,7 +12,7 @@ using asyncpp::task;
 
 asyncpp::stop_token timeout(std::chrono::nanoseconds ts) {
 	asyncpp::stop_source source;
-	asyncpp::timer::get_default().schedule([source](bool) { source.request_stop(); }, ts);
+	asyncpp::timer::get_default().schedule([source](bool) mutable { source.request_stop(); }, ts);
 	return source.get_token();
 }
 
@@ -68,7 +68,7 @@ TEST(ASYNCPP_IO, SocketSelf) {
 		}(service, server, st));
 		// Connect to said server
 		auto client = socket::create_tcp(service, server.local_endpoint().type());
-		co_await client.connect(server.local_endpoint(), st);
+		co_await client.connect(endpoint(ipv4_address::loopback(), server.local_endpoint().ipv4().port()), st);
 		// and read until connection is closed
 		while (true) {
 			char buf[128];
@@ -114,17 +114,20 @@ TEST(ASYNCPP_IO, SocketValid) {
 	ASSERT_TRUE(sock2.valid());
 	auto fd = sock2.release();
 	ASSERT_FALSE(sock2);
-	close(fd);
+	service->engine()->socket_close(fd);
 }
 
-#ifdef __linux__
 TEST(ASYNCPP_IO, SocketPair) {
 	io_service service;
 	std::string received;
 	asyncpp::async_launch_scope scope;
 	scope.invoke([&service, &received]() -> task<> {
 		auto stop = timeout(std::chrono::seconds(2));
+#ifdef _WIN32
+		auto pair = socket::connected_pair_tcp(service, address_type::ipv4);
+#else
 		auto pair = socket::connected_pair_tcp(service, address_type::uds);
+#endif
 		co_await pair.first.send("Hello", 5, stop);
 		pair.first.close_send();
 		while (true) {
@@ -142,4 +145,3 @@ TEST(ASYNCPP_IO, SocketPair) {
 	ASSERT_EQ(received.size(), 5);
 	ASSERT_EQ(received, "Hello");
 }
-#endif

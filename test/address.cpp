@@ -133,6 +133,7 @@ TEST(ASYNCPP_IO, IPv6ToString) {
 	ASSERT_EQ(ipv6_address(0x0102030400000000, 0x090A0B0C00000000).to_string(), "102:304::90a:b0c:0:0");
 }
 
+#ifndef _WIN32
 TEST(ASYNCPP_IO, UDSParse) {
 	ASSERT_EQ(uds_address::parse(std::string_view("\0", 1)), std::nullopt);
 	ASSERT_EQ(uds_address::parse(std::string_view("@")), std::nullopt);
@@ -174,3 +175,4 @@ TEST(ASYNCPP_IO, UDSTypes) {
 	ASSERT_FALSE(uds_address("").is_abstract());
 	ASSERT_TRUE(uds_address("").is_unnamed());
 }
+#endif

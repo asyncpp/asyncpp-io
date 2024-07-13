@@ -34,13 +34,18 @@ add_library(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/address.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/dns.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/file.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_generic_unix.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_select.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_uring.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_iocp.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/socket.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/tls.cpp)
 target_link_libraries(asyncpp_io PUBLIC asyncpp OpenSSL::SSL Threads::Threads)
+if(WIN32)
+  target_link_libraries(asyncpp_io PUBLIC wsock32 ws2_32 ntdll)
+endif()
 target_include_directories(asyncpp_io
                            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(asyncpp_io PUBLIC cxx_std_20)

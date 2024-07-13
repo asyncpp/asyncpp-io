@@ -5,21 +5,22 @@ namespace asyncpp::io::detail {
 	std::unique_ptr<io_engine> create_io_engine_uring() { return nullptr; }
 } // namespace asyncpp::io::detail
 #else
+#include "io_engine_generic_unix.h"
+
+#include <cstring>
+#include <mutex>
 
 #include <asm/unistd_64.h>
-#include <cstring>
+#include <fcntl.h>
 #include <liburing.h>
-#include <mutex>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "block_allocator.h"
-
 namespace asyncpp::io::detail {
 
-	class io_engine_uring : public io_engine {
+	class io_engine_uring : public io_engine_generic_unix {
 	public:
 		io_engine_uring(struct io_uring ring) noexcept;
 		io_engine_uring(const io_engine_uring&) = delete;
@@ -31,6 +32,8 @@ namespace asyncpp::io::detail {
 		size_t run(bool nowait) override;
 		void wake() override;
 
+		void socket_register(socket_handle_t socket) override;
+		void socket_release(socket_handle_t socket) override;
 		bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) override;
 		bool enqueue_accept(socket_handle_t socket, completion_data* cd) override;
 		bool enqueue_recv(socket_handle_t socket, void* buf, size_t len, completion_data* cd) override;
@@ -40,25 +43,40 @@ namespace asyncpp::io::detail {
 		bool enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
 							 completion_data* cd) override;
 
-		bool enqueue_readv(file_handle_t fd, void* buf, size_t len, off_t offset, completion_data* cd) override;
-		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, off_t offset, completion_data* cd) override;
+		void file_register(file_handle_t fd) override;
+		void file_release(file_handle_t fd) override;
+		bool enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) override;
+		bool enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
+							completion_data* cd) override;
 		bool enqueue_fsync(file_handle_t fd, fsync_flags flags, completion_data* cd) override;
 
 		bool cancel(completion_data* cd) override;
 
 	private:
-		struct msghdr_info {
-			struct msghdr hdr {};
-			sockaddr_storage sockaddr{};
-			iovec data{};
-			asyncpp::io::endpoint* real_endpoint{};
+		enum class uring_op : uint8_t {
+			invalid,
+			connect,
+			accept,
+			recv,
+			send,
+			recv_from,
+			send_to,
+			readv,
+			writev,
+			fsync
+		};
+		struct uring_engine_state {
+			struct msghdr hdr;
+			sockaddr_storage sockaddr;
+			iovec data;
+			asyncpp::io::endpoint* real_endpoint;
+			uring_op op;
 		};
 
 		std::mutex m_sqe_mtx{};
 		std::mutex m_cqe_mtx{};
 		std::atomic<size_t> m_inflight_count{};
 		struct io_uring m_ring {};
-		block_allocator<msghdr_info> m_state_allocator{};
 	};
 
 	std::unique_ptr<io_engine> create_io_engine_uring() {
@@ -106,18 +124,19 @@ namespace asyncpp::io::detail {
 		m_inflight_count.fetch_sub(1, std::memory_order::relaxed);
 		lck.unlock();
 
-		info->result = opres;
+		auto state = info->es_get<uring_engine_state>();
+		info->result = std::error_code(opres < 0 ? -opres : 0, std::system_category());
+		switch (state->op) {
+		case uring_op::accept: info->result_handle = opres; break;
+		default: info->result_size = static_cast<size_t>(opres); break;
+		}
 
-		if (auto extra = static_cast<msghdr_info*>(info->engine_state); extra != nullptr) {
-			if (extra->real_endpoint != nullptr) {
-				if (extra->sockaddr.ss_family == AF_INET || extra->sockaddr.ss_family == AF_INET6 ||
-					extra->sockaddr.ss_family == AF_UNIX)
-					*extra->real_endpoint = endpoint(extra->sockaddr, extra->hdr.msg_namelen);
-				else
-					*extra->real_endpoint = endpoint();
-			}
-			m_state_allocator.destroy(extra);
-			info->engine_state = nullptr;
+		if (state->real_endpoint != nullptr) {
+			if (state->sockaddr.ss_family == AF_INET || state->sockaddr.ss_family == AF_INET6 ||
+				state->sockaddr.ss_family == AF_UNIX)
+				*state->real_endpoint = endpoint(state->sockaddr, state->hdr.msg_namelen);
+			else
+				*state->real_endpoint = endpoint();
 		}
 
 		if (info->callback) info->callback(info->userdata);
@@ -132,6 +151,10 @@ namespace asyncpp::io::detail {
 		io_uring_sqe_set_data(sqe, nullptr);
 		io_uring_submit(&m_ring);
 	}
+
+	void io_engine_uring::socket_register(socket_handle_t socket) {}
+
+	void io_engine_uring::socket_release(socket_handle_t socket) {}
 
 	bool io_engine_uring::enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) {
 		auto sa = ep.to_sockaddr();
@@ -176,7 +199,7 @@ namespace asyncpp::io::detail {
 
 	bool io_engine_uring::enqueue_recv_from(socket_handle_t socket, void* buf, size_t len, endpoint* source,
 											completion_data* cd) {
-		auto* info = m_state_allocator.create();
+		auto* info = cd->es_init<uring_engine_state>();
 		info->hdr.msg_name = &info->sockaddr;
 		info->hdr.msg_namelen = sizeof(info->sockaddr);
 		info->hdr.msg_iov = &info->data;
@@ -184,8 +207,6 @@ namespace asyncpp::io::detail {
 		info->data.iov_base = buf;
 		info->data.iov_len = len;
 		info->real_endpoint = source;
-
-		cd->engine_state = info;
 
 		std::lock_guard lck{m_sqe_mtx};
 		struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
@@ -199,7 +220,7 @@ namespace asyncpp::io::detail {
 	bool io_engine_uring::enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
 										  completion_data* cd) {
 		auto addr = dst.to_sockaddr();
-		auto* info = m_state_allocator.create();
+		auto* info = cd->es_init<uring_engine_state>();
 		info->hdr.msg_name = &info->sockaddr;
 		info->hdr.msg_namelen = addr.second;
 		info->hdr.msg_iov = &info->data;
@@ -207,9 +228,6 @@ namespace asyncpp::io::detail {
 		info->sockaddr = addr.first;
 		info->data.iov_base = const_cast<void*>(buf);
 		info->data.iov_len = len;
-		info->real_endpoint = nullptr;
-
-		cd->engine_state = info;
 
 		std::lock_guard lck{m_sqe_mtx};
 		struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
@@ -220,13 +238,14 @@ namespace asyncpp::io::detail {
 		return false;
 	}
 
-	bool io_engine_uring::enqueue_readv(file_handle_t fd, void* buf, size_t len, off_t offset, completion_data* cd) {
-		auto* info = m_state_allocator.create();
+	void io_engine_uring::file_register(file_handle_t fd) {}
+
+	void io_engine_uring::file_release(file_handle_t fd) {}
+
+	bool io_engine_uring::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) {
+		auto* info = cd->es_init<uring_engine_state>();
 		info->data.iov_base = buf;
 		info->data.iov_len = len;
-		info->real_endpoint = nullptr;
-
-		cd->engine_state = info;
 
 		std::lock_guard lck{m_sqe_mtx};
 		struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
@@ -237,14 +256,11 @@ namespace asyncpp::io::detail {
 		return false;
 	}
 
-	bool io_engine_uring::enqueue_writev(file_handle_t fd, const void* buf, size_t len, off_t offset,
+	bool io_engine_uring::enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
 										 completion_data* cd) {
-		auto* info = m_state_allocator.create();
+		auto* info = cd->es_init<uring_engine_state>();
 		info->data.iov_base = const_cast<void*>(buf);
 		info->data.iov_len = len;
-		info->real_endpoint = nullptr;
-
-		cd->engine_state = info;
 
 		std::lock_guard lck{m_sqe_mtx};
 		struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);

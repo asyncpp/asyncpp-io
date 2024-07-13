@@ -21,8 +21,8 @@ jobs:
           - { tag: "ubuntu-2004_clang-11", name: "Ubuntu 20.04 Clang 11", cxx: "/usr/bin/clang++-11", cc: "/usr/bin/clang-11", runs-on: "ubuntu-20.04" }
           - { tag: "ubuntu-2004_clang-10", name: "Ubuntu 20.04 Clang 10", cxx: "/usr/bin/clang++-10", cc: "/usr/bin/clang-10", runs-on: "ubuntu-20.04" }
           - { tag: "ubuntu-2004_gcc-10", name: "Ubuntu 20.04 G++ 10", cxx: "/usr/bin/g++-10", cc: "/usr/bin/gcc-10", runs-on: "ubuntu-20.04" }
-          #- { tag: "windows-2022_msvc17", name: "Windows Server 2022 MSVC 17", cxx: "", cc: "", runs-on: "windows-2022" }
-          #- { tag: "windows-2019_msvc16", name: "Windows Server 2019 MSVC 16", cxx: "", cc: "", runs-on: "windows-2019" }
+          - { tag: "windows-2022_msvc17", name: "Windows Server 2022 MSVC 17", cxx: "", cc: "", runs-on: "windows-2022" }
+          - { tag: "windows-2019_msvc16", name: "Windows Server 2019 MSVC 16", cxx: "", cc: "", runs-on: "windows-2019" }
           - { tag: "macos-12_gcc-12", name: "MacOS 12 G++ 12", cxx: "g++-12", cc: "gcc-12", runs-on: "macos-12" }
           #- { tag: "macos-12_gcc-13", name: "MacOS 12 G++ 13", cxx: "g++-13", cc: "gcc-13", runs-on: "macos-12" }
           - { tag: "macos-12_gcc-14", name: "MacOS 12 G++ 14", cxx: "g++-14", cc: "gcc-14", runs-on: "macos-12" }

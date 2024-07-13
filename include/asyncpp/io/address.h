@@ -94,7 +94,7 @@ namespace asyncpp::io {
 			constexpr auto parse_part = [](std::string_view::const_iterator& it, std::string_view::const_iterator end) {
 				if (it == end || (*it < '0' && *it > '9')) return -1;
 				int32_t result = 0;
-				while (*it >= '0' && *it <= '9') {
+				while (it != end && *it >= '0' && *it <= '9') {
 					result = (result * 10) + (*it - '0');
 					it++;
 				}
@@ -157,7 +157,7 @@ namespace asyncpp::io {
 
 		constexpr std::span<const uint8_t, 16> data() const noexcept { return m_data; }
 		constexpr std::span<const uint8_t, 4> ipv4_data() const noexcept {
-			return std::span<const uint8_t, 4>{&m_data[12], &m_data[16]};
+			return std::span<const uint8_t, 4>{&m_data[12], &m_data[12] + 4};
 		}
 
 		constexpr uint64_t subnet_prefix() const noexcept {
@@ -189,7 +189,7 @@ namespace asyncpp::io {
 		}
 		constexpr ipv4_address mapped_ipv4() const noexcept {
 			if (!is_ipv4_mapped()) return ipv4_address();
-			return ipv4_address(std::span<const uint8_t, 4>(&m_data[12], &m_data[16]));
+			return ipv4_address(std::span<const uint8_t, 4>(&m_data[12], &m_data[12] + 4));
 		}
 
 		std::string to_string(bool full = false) const {
@@ -249,7 +249,7 @@ namespace asyncpp::io {
 			auto it = str.begin();
 			auto part_start = it;
 			bool is_v4_interop = false;
-			if (*it == ':') {
+			if (it != str.end() && *it == ':') {
 				dcidx = idx++;
 				it++;
 				if (it == str.end() || *it != ':') return std::nullopt;
@@ -508,7 +508,7 @@ namespace std {
 	template<>
 	struct hash<asyncpp::io::uds_address> {
 		size_t operator()(const asyncpp::io::uds_address& x) const noexcept {
-			size_t res = 0;
+			size_t res{};
 			for (auto e : x.data())
 				res = res ^ (e + 0x9e3779b99e3779b9ull + (res << 6) + (res >> 2));
 			return res;
@@ -518,7 +518,7 @@ namespace std {
 	template<>
 	struct hash<asyncpp::io::address> {
 		size_t operator()(const asyncpp::io::address& x) const noexcept {
-			size_t res;
+			size_t res{};
 			switch (x.type()) {
 			case asyncpp::io::address_type::ipv4: res = std::hash<asyncpp::io::ipv4_address>{}(x.ipv4()); break;
 			case asyncpp::io::address_type::ipv6: res = std::hash<asyncpp::io::ipv6_address>{}(x.ipv6()); break;
