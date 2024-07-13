@@ -34,6 +34,7 @@ add_library(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/address.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/dns.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/file.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_generic_unix.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_select.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_uring.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/io_engine_win32cq.cpp

@@ -117,14 +117,17 @@ TEST(ASYNCPP_IO, SocketValid) {
 	service->engine()->socket_close(fd);
 }
 
-#ifdef __linux__
 TEST(ASYNCPP_IO, SocketPair) {
 	io_service service;
 	std::string received;
 	asyncpp::async_launch_scope scope;
 	scope.invoke([&service, &received]() -> task<> {
 		auto stop = timeout(std::chrono::seconds(2));
+#ifdef _WIN32
+		auto pair = socket::connected_pair_tcp(service, address_type::ipv4);
+#else
 		auto pair = socket::connected_pair_tcp(service, address_type::uds);
+#endif
 		co_await pair.first.send("Hello", 5, stop);
 		pair.first.close_send();
 		while (true) {
@@ -142,4 +145,3 @@ TEST(ASYNCPP_IO, SocketPair) {
 	ASSERT_EQ(received.size(), 5);
 	ASSERT_EQ(received, "Hello");
 }
-#endif

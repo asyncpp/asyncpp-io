@@ -1,22 +1,5 @@
 #include <asyncpp/io/socket.h>
 
-#include <cstring>
-
-#ifndef _WIN32
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
-
-namespace {
-
-	std::system_error sys_error(int code) {
-		return std::system_error(std::make_error_code(static_cast<std::errc>(code)));
-	}
-
-} // namespace
-
 namespace asyncpp::io {
 
 	socket socket::create_tcp(io_service& io, address_type addrtype) {
@@ -58,64 +41,21 @@ namespace asyncpp::io {
 		return sock;
 	}
 
-#ifndef _WIN32
 	std::pair<socket, socket> socket::connected_pair_tcp(io_service& io, address_type addrtype) {
-		int domain = -1;
-		switch (addrtype) {
-		case address_type::ipv4: domain = AF_INET; break;
-		case address_type::ipv6: domain = AF_INET6; break;
-		case address_type::uds: domain = AF_UNIX; break;
-		}
-		if (domain == -1) throw sys_error(ENOTSUP);
-
-		int socks[2];
-#ifndef __APPLE__
-		if (socketpair(domain, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socks) != 0) throw sys_error(errno);
-#else
-		if (socketpair(domain, SOCK_STREAM, 0, socks) != 0) throw sys_error(errno);
-		int flags0 = fcntl(socks[0], F_GETFL, 0);
-		int flags1 = fcntl(socks[1], F_GETFL, 0);
-		if (flags0 < 0 || flags1 < 0 ||																				  //
-			fcntl(socks[0], F_SETFL, flags0 | O_NONBLOCK) < 0 || fcntl(socks[1], F_SETFL, flags1 | O_NONBLOCK) < 0 || //
-			fcntl(socks[0], F_SETFD, FD_CLOEXEC) < 0 || fcntl(socks[1], F_SETFD, FD_CLOEXEC) < 0) {
-			close(socks[0]);
-			close(socks[1]);
-			throw std::system_error(errno, std::system_category(), "pipe failed");
-		}
-#endif
-		std::pair<socket, socket> res{socket(&io, socks[0]), socket(&io, socks[1])};
+		auto socks = io.engine()->socket_create_connected_pair(addrtype, detail::io_engine::socket_type::stream);
+		std::pair<socket, socket> res{socket(&io, socks.first), socket(&io, socks.second)};
 		res.first.update_endpoint_info();
 		res.second.update_endpoint_info();
 		return res;
 	}
 
 	std::pair<socket, socket> socket::connected_pair_udp(io_service& io, address_type addrtype) {
-		int domain = -1;
-		switch (addrtype) {
-		case address_type::ipv4: domain = AF_INET; break;
-		case address_type::ipv6: domain = AF_INET6; break;
-		case address_type::uds: domain = AF_UNIX; break;
-		}
-		if (domain == -1) throw sys_error(ENOTSUP);
-
-		int socks[2];
-#ifndef __APPLE__
-		if (socketpair(domain, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socks) != 0) throw sys_error(errno);
-#else
-		if (socketpair(domain, SOCK_DGRAM, 0, socks) != 0) throw sys_error(errno);
-		int flags0 = fcntl(socks[0], F_GETFL, 0);
-		int flags1 = fcntl(socks[1], F_GETFL, 0);
-		if (flags0 < 0 || flags1 < 0 ||																				  //
-			fcntl(socks[0], F_SETFL, flags0 | O_NONBLOCK) < 0 || fcntl(socks[1], F_SETFL, flags1 | O_NONBLOCK) < 0 || //
-			fcntl(socks[0], F_SETFD, FD_CLOEXEC) < 0 || fcntl(socks[1], F_SETFD, FD_CLOEXEC) < 0) {
-			close(socks[0]);
-			close(socks[1]);
-			throw std::system_error(errno, std::system_category(), "pipe failed");
-		}
-#endif
-		return {socket(&io, socks[0]), socket(&io, socks[1])};
+		auto socks = io.engine()->socket_create_connected_pair(addrtype, detail::io_engine::socket_type::stream);
+		std::pair<socket, socket> res{socket(&io, socks.first), socket(&io, socks.second)};
+		res.first.update_endpoint_info();
+		res.second.update_endpoint_info();
+		return res;
 	}
-#endif
 
 	socket::socket(io_service* io, detail::io_engine::socket_handle_t fd) noexcept
 		: m_io{io}, m_fd{fd}, m_remote_ep{}, m_local_ep{} {}

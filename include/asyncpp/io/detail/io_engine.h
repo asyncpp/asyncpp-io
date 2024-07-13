@@ -69,6 +69,7 @@ namespace asyncpp::io::detail {
 
 		// Networking api
 		virtual socket_handle_t socket_create(address_type domain, socket_type type) = 0;
+		virtual std::pair<socket_handle_t, socket_handle_t> socket_create_connected_pair(address_type domain, socket_type type) = 0;
 		virtual void socket_register(socket_handle_t socket) = 0;
 		virtual void socket_release(socket_handle_t socket) = 0;
 		virtual void socket_close(socket_handle_t socket) = 0;

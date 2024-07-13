@@ -74,6 +74,8 @@ namespace asyncpp::io::detail {
 		void wake() override;
 
 		socket_handle_t socket_create(address_type domain, socket_type type) override;
+		std::pair<socket_handle_t, socket_handle_t> socket_create_connected_pair(address_type domain,
+																				 socket_type type) override;
 		void socket_register(socket_handle_t socket) override;
 		void socket_release(socket_handle_t socket) override;
 		void socket_close(socket_handle_t socket) override;
@@ -223,6 +225,64 @@ namespace asyncpp::io::detail {
 			throw std::system_error(GetLastError(), std::system_category(), "CreateIoCompletionPort failed");
 		}
 		return fd;
+	}
+
+	std::pair<io_engine::socket_handle_t, io_engine::socket_handle_t>
+	io_engine_win32cq::socket_create_connected_pair(address_type domain, socket_type type) {
+		if (type != socket_type::stream)
+			throw std::system_error(std::make_error_code(std::errc::function_not_supported), "unsupported socket type");
+
+		auto close_and_throw = [](const char* name, auto... sockets) {
+			auto err = WSAGetLastError();
+			(::closesocket(sockets), ...);
+			throw std::system_error(err, std::system_category(), name);
+		};
+
+		auto listener = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
+		if (listener == INVALID_SOCKET) close_and_throw("WSASocket");
+
+		int reuse = 1;
+		if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, (socklen_t)sizeof(reuse)) == -1)
+			close_and_throw("setsockopt", listener);
+
+		struct sockaddr_in inaddr {};
+		inaddr.sin_family = AF_INET;
+		inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+		if (bind(listener, reinterpret_cast<sockaddr*>(&inaddr), sizeof(inaddr)) == SOCKET_ERROR)
+			close_and_throw("bind", listener);
+
+		inaddr = {};
+		int addrlen = sizeof(inaddr);
+		if (getsockname(listener, reinterpret_cast<sockaddr*>(&inaddr), &addrlen) == SOCKET_ERROR)
+			close_and_throw("getsockname", listener);
+		// win32 getsockname may only set the port number
+		inaddr.sin_family = AF_INET;
+		inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+		if (listen(listener, 1) == SOCKET_ERROR) close_and_throw("listen", listener);
+
+		auto sock0 = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+		if (sock0 == INVALID_SOCKET) close_and_throw("WSASocket", listener);
+		if (connect(sock0, reinterpret_cast<sockaddr*>(&inaddr), sizeof(inaddr)) == SOCKET_ERROR)
+			close_and_throw("connect", listener, sock0);
+
+		auto sock1 = accept(listener, NULL, NULL);
+		if (sock1 == INVALID_SOCKET) close_and_throw("accept", listener, sock0);
+
+		closesocket(listener);
+
+		u_long mode = 1;
+		if (ioctlsocket(sock0, FIONBIO, &mode) == SOCKET_ERROR) close_and_throw("ioctlsocket", listener, sock0, sock1);
+		mode = 1;
+		if (ioctlsocket(sock1, FIONBIO, &mode) == SOCKET_ERROR) close_and_throw("ioctlsocket", listener, sock0, sock1);
+
+		// Add socket to completion port
+		if (CreateIoCompletionPort((HANDLE)sock0, m_completion_port, 0, 0) == NULL)
+			close_and_throw("CreateIoCompletionPort", listener, sock0, sock1);
+		if (CreateIoCompletionPort((HANDLE)sock1, m_completion_port, 0, 0) == NULL)
+			close_and_throw("CreateIoCompletionPort", listener, sock0, sock1);
+
+		return {sock0, sock1};
 	}
 
 	void io_engine_win32cq::socket_register(socket_handle_t socket) {

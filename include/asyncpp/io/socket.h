@@ -76,10 +76,8 @@ namespace asyncpp::io {
 		[[nodiscard]] static socket create_and_bind_tcp(io_service& io, const endpoint& ep);
 		[[nodiscard]] static socket create_and_bind_udp(io_service& io, const endpoint& ep);
 		[[nodiscard]] static socket from_fd(io_service& io, detail::io_engine::socket_handle_t fd);
-#ifndef __WIN32
 		[[nodiscard]] static std::pair<socket, socket> connected_pair_tcp(io_service& io, address_type addrtype);
 		[[nodiscard]] static std::pair<socket, socket> connected_pair_udp(io_service& io, address_type addrtype);
-#endif
 
 		constexpr socket() noexcept = default;
 		socket(socket&& other) noexcept;
