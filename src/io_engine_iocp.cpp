@@ -483,7 +483,7 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_iocp::enqueue_recv_from(socket_handle_t socket, void* buf, size_t len, endpoint* source,
-											  completion_data* cd) {
+										   completion_data* cd) {
 		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 		memset(&state->recv_from_sa, 0, sizeof(state->recv_from_sa));
@@ -509,7 +509,7 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_iocp::enqueue_send_to(socket_handle_t socket, const void* buf, size_t len, endpoint dst,
-											completion_data* cd) {
+										 completion_data* cd) {
 		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = (HANDLE)socket;
 
@@ -590,8 +590,7 @@ namespace asyncpp::io::detail {
 		return (static_cast<uint64_t>(high) << 32) + res;
 	}
 
-	bool io_engine_iocp::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset,
-										  completion_data* cd) {
+	bool io_engine_iocp::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) {
 		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
@@ -609,7 +608,7 @@ namespace asyncpp::io::detail {
 	}
 
 	bool io_engine_iocp::enqueue_writev(file_handle_t fd, const void* buf, size_t len, uint64_t offset,
-										   completion_data* cd) {
+										completion_data* cd) {
 		auto state = cd->es_init<iocp_engine_state>();
 		state->handle = fd;
 		state->overlapped.Offset = offset & 0xffffffff;
