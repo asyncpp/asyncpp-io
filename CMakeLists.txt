@@ -64,7 +64,7 @@ if(ASYNCPP_WITH_ASAN)
     target_link_libraries(asyncpp_io PRIVATE libsancov.lib)
   else()
     target_compile_options(asyncpp_io PRIVATE -fsanitize=address)
-    target_link_libraries(asyncpp_io PRIVATE asan)
+    target_link_libraries(asyncpp_io PRIVATE -fsanitize=address)
   endif()
 endif()
 
