@@ -31,6 +31,9 @@ endif()
 
 add_library(
   asyncpp_io
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/dns/enums.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/dns/record.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/dns/tsig.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/address.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/dns.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/file.cpp
@@ -81,6 +84,7 @@ if(ASYNCPP_BUILD_TEST)
   add_executable(
     asyncpp_io-test
     ${CMAKE_CURRENT_SOURCE_DIR}/test/address.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test/dns_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test/dns.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test/endpoint.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test/file.cpp
