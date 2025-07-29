@@ -496,6 +496,9 @@ namespace asyncpp::io {
 			auto that = static_cast<socket_recv_exact_awaitable*>(ptr);
 			auto engine = that->m_socket.service().engine();
 			do {
+				if (that->m_completion.result_size == 0) {
+					that->m_completion.result = std::make_error_code(std::errc::not_connected);
+				}
 				if (that->m_completion.result) {
 					that->m_handle.resume();
 					break;
