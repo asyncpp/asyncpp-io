@@ -11,6 +11,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Fixes for MUSL Libc that lacks *64_t types
+#ifndef __GLIBC__
+#define off64_t off_t
+#define stat64 stat
+#define fstat64 fstat
+#define fseeko64 fseeko
+#define ftello64 ftello
+#endif
+
 namespace asyncpp::io::detail {
 
 	io_engine::socket_handle_t io_engine_generic_unix::socket_create(address_type domain, socket_type type) {
