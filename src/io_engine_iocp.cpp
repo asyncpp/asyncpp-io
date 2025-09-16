@@ -84,9 +84,9 @@ namespace asyncpp::io::detail {
 		endpoint socket_local_endpoint(socket_handle_t socket) override;
 		endpoint socket_remote_endpoint(socket_handle_t socket) override;
 		void socket_enable_broadcast(socket_handle_t socket, bool enable) override;
-		void socket_multicast_join(socket_handle_t socket, address group, address interface) override;
-		void socket_multicast_drop(socket_handle_t socket, address group, address interface) override;
-		void socket_multicast_set_send_interface(socket_handle_t socket, address interface) override;
+		void socket_multicast_join(socket_handle_t socket, address group, address iface) override;
+		void socket_multicast_drop(socket_handle_t socket, address group, address iface) override;
+		void socket_multicast_set_send_interface(socket_handle_t socket, address iface) override;
 		void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) override;
 		void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) override;
 		void socket_shutdown(socket_handle_t socket, bool receive, bool send) override;
@@ -635,7 +635,7 @@ namespace asyncpp::io::detail {
 	address_type io_engine_iocp::get_handle_type(socket_handle_t socket) {
 		WSAPROTOCOL_INFO info{};
 		socklen_t length = sizeof(info);
-		auto res = getsockopt(socket, SOL_SOCKET, SO_PROTOCOL_INFO, &info, &length);
+		auto res = getsockopt(socket, SOL_SOCKET, SO_PROTOCOL_INFO, reinterpret_cast<char*>(&info), &length);
 		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "getsockopt failed");
 		switch (info.iAddressFamily) {
 		case AF_INET: return address_type::ipv4;

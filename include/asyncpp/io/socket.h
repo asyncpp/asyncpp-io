@@ -97,11 +97,11 @@ namespace asyncpp::io {
 		void listen(std::uint32_t backlog = 0);
 
 		void allow_broadcast(bool enable);
-		void multicast_join(address group, address interface);
+		void multicast_join(address group, address iface);
 		void multicast_join(address group);
-		void multicast_drop(address group, address interface);
+		void multicast_drop(address group, address iface);
 		void multicast_drop(address group);
-		void multicast_set_send_interface(address interface);
+		void multicast_set_send_interface(address iface);
 		void multicast_set_ttl(size_t ttl);
 		void multicast_set_loopback(bool enabled);
 

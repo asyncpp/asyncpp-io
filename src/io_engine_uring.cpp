@@ -17,6 +17,14 @@ namespace asyncpp::io::detail {
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifndef __NR_io_uring_register
+#ifdef __alpha__
+#define __NR_io_uring_register	537
+#else
+#define __NR_io_uring_register	427
+#endif
+#endif
+
 namespace asyncpp::io::detail {
 
 	class io_engine_uring : public io_engine_generic_unix {

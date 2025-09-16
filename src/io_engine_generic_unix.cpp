@@ -137,20 +137,20 @@ namespace asyncpp::io::detail {
 		if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 	}
 
-	void io_engine_generic_unix::socket_multicast_join(socket_handle_t socket, address group, address interface) {
-		if (group.type() != interface.type())
+	void io_engine_generic_unix::socket_multicast_join(socket_handle_t socket, address group, address iface) {
+		if (group.type() != iface.type())
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
 			struct ip_mreq mc_req{};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
-			mc_req.imr_interface = interface.ipv4().to_sockaddr_in().first.sin_addr;
+			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
 			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
-			mc_req.ipv6mr_interface = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else {
@@ -159,20 +159,20 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	void io_engine_generic_unix::socket_multicast_drop(socket_handle_t socket, address group, address interface) {
-		if (group.type() != interface.type())
+	void io_engine_generic_unix::socket_multicast_drop(socket_handle_t socket, address group, address iface) {
+		if (group.type() != iface.type())
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
 			struct ip_mreq mc_req{};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
-			mc_req.imr_interface = interface.ipv4().to_sockaddr_in().first.sin_addr;
+			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
 			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
-			mc_req.ipv6mr_interface = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else {
@@ -181,13 +181,13 @@ namespace asyncpp::io::detail {
 		}
 	}
 
-	void io_engine_generic_unix::socket_multicast_set_send_interface(socket_handle_t socket, address interface) {
-		if (interface.is_ipv4()) {
-			auto addr = interface.ipv4().to_sockaddr_in().first.sin_addr.s_addr;
+	void io_engine_generic_unix::socket_multicast_set_send_interface(socket_handle_t socket, address iface) {
+		if (iface.is_ipv4()) {
+			auto addr = iface.ipv4().to_sockaddr_in().first.sin_addr.s_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<char*>(&addr), sizeof(addr));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
-		} else if (interface.is_ipv6()) {
-			auto scope = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+		} else if (iface.is_ipv6()) {
+			auto scope = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res =
 				setsockopt(socket, IPPROTO_IPV6, IPV6_MULTICAST_IF, reinterpret_cast<char*>(&scope), sizeof(scope));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
