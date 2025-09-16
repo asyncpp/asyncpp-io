@@ -137,6 +137,99 @@ namespace asyncpp::io::detail {
 		if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 	}
 
+	void io_engine_generic_unix::socket_multicast_join(socket_handle_t socket, address group, address interface) {
+		if (group.type() != interface.type())
+			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+									"group and interface need to be of the same type");
+		if (group.is_ipv4()) {
+			struct ip_mreq mc_req{};
+			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
+			mc_req.imr_interface = interface.ipv4().to_sockaddr_in().first.sin_addr;
+			auto res = setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else if (group.is_ipv6()) {
+			struct ipv6_mreq mc_req{};
+			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
+			mc_req.ipv6mr_interface = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else {
+			throw std::system_error(std::make_error_code(std::errc::not_supported),
+									"multicast is only supported on IPv4/IPv6");
+		}
+	}
+
+	void io_engine_generic_unix::socket_multicast_drop(socket_handle_t socket, address group, address interface) {
+		if (group.type() != interface.type())
+			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+									"group and interface need to be of the same type");
+		if (group.is_ipv4()) {
+			struct ip_mreq mc_req{};
+			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
+			mc_req.imr_interface = interface.ipv4().to_sockaddr_in().first.sin_addr;
+			auto res = setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else if (group.is_ipv6()) {
+			struct ipv6_mreq mc_req{};
+			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
+			mc_req.ipv6mr_interface = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else {
+			throw std::system_error(std::make_error_code(std::errc::not_supported),
+									"multicast is only supported on IPv4/IPv6");
+		}
+	}
+
+	void io_engine_generic_unix::socket_multicast_set_send_interface(socket_handle_t socket, address interface) {
+		if (interface.is_ipv4()) {
+			auto addr = interface.ipv4().to_sockaddr_in().first.sin_addr.s_addr;
+			auto res = setsockopt(socket, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<char*>(&addr), sizeof(addr));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else if (interface.is_ipv6()) {
+			auto scope = interface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
+			auto res =
+				setsockopt(socket, IPPROTO_IPV6, IPV6_MULTICAST_IF, reinterpret_cast<char*>(&scope), sizeof(scope));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else {
+			throw std::system_error(std::make_error_code(std::errc::not_supported),
+									"multicast is only supported on IPv4/IPv6");
+		}
+	}
+
+	void io_engine_generic_unix::socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) {
+		auto type = get_handle_type(socket);
+		if (ttl > std::numeric_limits<int>::max()) throw std::invalid_argument("ttl value out of range");
+		int ittl = ttl;
+		if (type == address_type::ipv4) {
+			auto res = setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<char*>(&ittl), sizeof(ittl));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else if (type == address_type::ipv6) {
+			auto res =
+				setsockopt(socket, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, reinterpret_cast<char*>(&ittl), sizeof(ittl));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else {
+			throw std::system_error(std::make_error_code(std::errc::not_supported),
+									"multicast is only supported on IPv4/IPv6");
+		}
+	}
+
+	void io_engine_generic_unix::socket_multicast_set_loopback(socket_handle_t socket, bool enabled) {
+		auto type = get_handle_type(socket);
+		int val = enabled ? 1 : 0;
+		if (type == address_type::ipv4) {
+			auto res = setsockopt(socket, IPPROTO_IP, IP_MULTICAST_LOOP, reinterpret_cast<char*>(&val), sizeof(val));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else if (type == address_type::ipv6) {
+			auto res =
+				setsockopt(socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, reinterpret_cast<char*>(&val), sizeof(val));
+			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+		} else {
+			throw std::system_error(std::make_error_code(std::errc::not_supported),
+									"multicast is only supported on IPv4/IPv6");
+		}
+	}
+
 	void io_engine_generic_unix::socket_shutdown(socket_handle_t socket, bool receive, bool send) {
 		int mode = 0;
 		if (receive && send)
@@ -149,6 +242,19 @@ namespace asyncpp::io::detail {
 			return;
 		auto res = ::shutdown(socket, mode);
 		if (res < 0 && errno != ENOTCONN) throw std::system_error(errno, std::system_category(), "shutdown failed");
+	}
+
+	address_type io_engine_generic_unix::get_handle_type(socket_handle_t socket) {
+		int type = -1;
+		socklen_t length = sizeof(int);
+		auto res = getsockopt(socket, SOL_SOCKET, SO_TYPE, &type, &length);
+		if (res < 0) throw std::system_error(errno, std::system_category(), "getsockopt failed");
+		switch (type) {
+		case AF_INET: return address_type::ipv4;
+		case AF_INET6: return address_type::ipv6;
+		case AF_UNIX: return address_type::uds;
+		default: throw std::logic_error("unknown socket type");
+		}
 	}
 
 	io_engine::file_handle_t io_engine_generic_unix::file_open(const char* filename, std::ios_base::openmode mode) {
@@ -173,12 +279,12 @@ namespace asyncpp::io::detail {
 
 	uint64_t io_engine_generic_unix::file_size(file_handle_t fd) {
 #ifdef __APPLE__
-		struct stat info {};
+		struct stat info{};
 		auto res = fstat(fd, &info);
 		if (res < 0) throw std::system_error(errno, std::system_category());
 		return info.st_size;
 #else
-		struct stat64 info {};
+		struct stat64 info{};
 		auto res = fstat64(fd, &info);
 		if (res < 0) throw std::system_error(errno, std::system_category());
 		return info.st_size;

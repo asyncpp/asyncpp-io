@@ -79,6 +79,11 @@ namespace asyncpp::io::detail {
 		virtual endpoint socket_local_endpoint(socket_handle_t socket) = 0;
 		virtual endpoint socket_remote_endpoint(socket_handle_t socket) = 0;
 		virtual void socket_enable_broadcast(socket_handle_t socket, bool enable) = 0;
+		virtual void socket_multicast_join(socket_handle_t socket, address group, address interface) = 0;
+		virtual void socket_multicast_drop(socket_handle_t socket, address group, address interface) = 0;
+		virtual void socket_multicast_set_send_interface(socket_handle_t socket, address interface) = 0;
+		virtual void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) = 0;
+		virtual void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) = 0;
 		virtual void socket_shutdown(socket_handle_t socket, bool receive, bool send) = 0;
 		virtual bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) = 0;
 		virtual bool enqueue_accept(socket_handle_t socket, completion_data* cd) = 0;

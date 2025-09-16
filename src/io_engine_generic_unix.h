@@ -14,11 +14,19 @@ namespace asyncpp::io::detail {
 		endpoint socket_local_endpoint(socket_handle_t socket) override;
 		endpoint socket_remote_endpoint(socket_handle_t socket) override;
 		void socket_enable_broadcast(socket_handle_t socket, bool enable) override;
+		void socket_multicast_join(socket_handle_t socket, address group, address interface) override;
+		void socket_multicast_drop(socket_handle_t socket, address group, address interface) override;
+		void socket_multicast_set_send_interface(socket_handle_t socket, address interface) override;
+		void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) override;
+		void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) override;
 		void socket_shutdown(socket_handle_t socket, bool receive, bool send) override;
 
 		file_handle_t file_open(const char* filename, std::ios_base::openmode mode) override;
 		void file_close(file_handle_t fd) override;
 		uint64_t file_size(file_handle_t fd) override;
+
+	protected:
+		address_type get_handle_type(socket_handle_t socket);
 
 	private:
 	};

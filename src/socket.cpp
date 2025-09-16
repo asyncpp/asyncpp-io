@@ -110,6 +110,43 @@ namespace asyncpp::io {
 		m_io->engine()->socket_enable_broadcast(m_fd, enable);
 	}
 
+	void socket::multicast_join(address group, address interface) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		if (group.type() != interface.type()) throw std::logic_error("group and interface need to be of the same type");
+		m_io->engine()->socket_multicast_join(m_fd, group, interface);
+	}
+
+	void socket::multicast_join(address group) {
+		auto iface = group.type() == address_type::ipv4 ? address{ipv4_address::any()} : address{ipv6_address::any()};
+		return multicast_join(group, iface);
+	}
+
+	void socket::multicast_drop(address group, address interface) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		if (group.type() != interface.type()) throw std::logic_error("group and interface need to be of the same type");
+		m_io->engine()->socket_multicast_drop(m_fd, group, interface);
+	}
+
+	void socket::multicast_drop(address group) {
+		auto iface = group.type() == address_type::ipv4 ? address{ipv4_address::any()} : address{ipv6_address::any()};
+		return multicast_drop(group, iface);
+	}
+
+	void socket::multicast_set_send_interface(address interface) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		m_io->engine()->socket_multicast_set_send_interface(m_fd, interface);
+	}
+
+	void socket::multicast_set_ttl(size_t ttl) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		m_io->engine()->socket_multicast_set_ttl(m_fd, ttl);
+	}
+
+	void socket::multicast_set_loopback(bool enabled) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		m_io->engine()->socket_multicast_set_loopback(m_fd, enabled);
+	}
+
 	void socket::close_send() {
 		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
 		m_io->engine()->socket_shutdown(m_fd, false, true);
