@@ -414,7 +414,7 @@ namespace asyncpp::io::detail {
 
 	void io_engine_iocp::socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) {
 		auto type = get_handle_type(socket);
-		if (ttl > std::numeric_limits<int>::max()) throw std::invalid_argument("ttl value out of range");
+		if (ttl > (std::numeric_limits<int>::max)()) throw std::invalid_argument("ttl value out of range");
 		int ittl = ttl;
 		if (type == address_type::ipv4) {
 			auto res = setsockopt(socket, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<const char*>(&ittl), sizeof(ittl));
