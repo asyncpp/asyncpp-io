@@ -1,0 +1,19 @@
+name: Grep Mac headers
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    name: Find it
+    env:
+      CXX: /opt/homebrew/opt/llvm@18/bin/clang++
+      CC: /opt/homebrew/opt/llvm@18/bin/clang
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Print include paths
+        run: /opt/homebrew/opt/llvm@18/bin/clang++ -E -x c++ - -v < /dev/null
+    
