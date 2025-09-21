@@ -11,6 +11,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Mac Testing
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
+
 // Fixes for MUSL Libc that lacks *64_t types
 #ifndef __GLIBC__
 #define off64_t off_t
