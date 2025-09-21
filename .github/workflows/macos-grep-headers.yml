@@ -18,10 +18,10 @@ jobs:
         run: /opt/homebrew/opt/llvm@18/bin/clang++ -E -x c++ - -v < /dev/null
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
         if: always()
-        run: grep -Rn "IP_MULTICAST_IF" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
+        run: grep -Rn "IPV6_ADD_MEMBERSHIP" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
         if: always()
-        run: grep -Rn "IP_MULTICAST_IF" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
+        run: grep -Rn "IPV6_ADD_MEMBERSHIP" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
       - name: Cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
         if: always()
         run: cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
