@@ -22,6 +22,6 @@ jobs:
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
         if: always()
         run: grep -Rn "ipv6_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
-      - name: Cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
+      - name: Cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet6/in6.h
         if: always()
-        run: cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
+        run: cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet6/in6.h
