@@ -16,14 +16,11 @@ jobs:
     steps:
       - name: Print include paths
         run: /opt/homebrew/opt/llvm@18/bin/clang++ -E -x c++ - -v < /dev/null
-      - name: Grep Random
-        run: grep 
       - name: Grep /opt/homebrew/opt/llvm@18/include/c++/v1
-        run: grep -r "ip_mreq" "/opt/homebrew/opt/llvm@18/include/c++/v1"
+        run: grep -R "ip_mreq" "/opt/homebrew/opt/llvm@18/include/c++/v1"
       - name: Grep /opt/homebrew/Cellar/llvm@18/18.1.8/lib/clang/18/include
-        run: grep -r "ip_mreq" "/opt/homebrew/Cellar/llvm@18/18.1.8/lib/clang/18/include"
+        run: grep -R "ip_mreq" "/opt/homebrew/Cellar/llvm@18/18.1.8/lib/clang/18/include"
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
-        run: grep -r "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
+        run: grep -R "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
-        run: grep -r "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
-    
+        run: grep -R "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
