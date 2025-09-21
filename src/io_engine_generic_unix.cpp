@@ -1,6 +1,10 @@
 #ifndef _WIN32
 #include "io_engine_generic_unix.h"
 
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE
+#endif
+
 #include <cstring>
 
 #include <fcntl.h>
