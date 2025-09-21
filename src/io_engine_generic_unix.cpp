@@ -155,7 +155,7 @@ namespace asyncpp::io::detail {
 			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
-			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else {
 			throw std::system_error(std::make_error_code(std::errc::not_supported),
@@ -177,7 +177,7 @@ namespace asyncpp::io::detail {
 			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
-			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
+			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else {
 			throw std::system_error(std::make_error_code(std::errc::not_supported),
