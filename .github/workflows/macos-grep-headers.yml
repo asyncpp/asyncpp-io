@@ -18,13 +18,10 @@ jobs:
         run: /opt/homebrew/opt/llvm@18/bin/clang++ -E -x c++ - -v < /dev/null
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
         if: always()
-        run: grep -Rn "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
+        run: grep -Rn "IP_MULTICAST_IF" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include
       - name: Grep /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
         if: always()
-        run: grep -Rn "ip_mreq" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
-      - name: Grep /opt/homebrew/opt/llvm@18/include/c++/v1
+        run: grep -Rn "IP_MULTICAST_IF" /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks
+      - name: Cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
         if: always()
-        run: grep -Rn "ip_mreq" "/opt/homebrew/opt/llvm@18/include/c++/v1"
-      - name: Grep /opt/homebrew/Cellar/llvm@18/18.1.8/lib/clang/18/include
-        if: always()
-        run: grep -Rn "ip_mreq" "/opt/homebrew/Cellar/llvm@18/18.1.8/lib/clang/18/include"
+        run: cat /Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/netinet/in.h
