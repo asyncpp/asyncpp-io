@@ -97,6 +97,13 @@ namespace asyncpp::io {
 		void listen(std::uint32_t backlog = 0);
 
 		void allow_broadcast(bool enable);
+		void multicast_join(address group, address iface);
+		void multicast_join(address group);
+		void multicast_drop(address group, address iface);
+		void multicast_drop(address group);
+		void multicast_set_send_interface(address iface);
+		void multicast_set_ttl(size_t ttl);
+		void multicast_set_loopback(bool enabled);
 
 		[[nodiscard]] detail::io_engine::socket_handle_t native_handle() const noexcept { return m_fd; }
 		[[nodiscard]] detail::io_engine::socket_handle_t release() noexcept {
@@ -620,7 +627,7 @@ namespace asyncpp::io {
 				if (that->result)
 					that->real_cb(that->result);
 				else
-					that->real_cb(socket::from_fd(that->service(), that->result_handle));
+					that->real_cb(socket::from_fd(that->service, that->result_handle));
 
 				delete that;
 			};
