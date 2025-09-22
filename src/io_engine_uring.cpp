@@ -19,9 +19,9 @@ namespace asyncpp::io::detail {
 
 #ifndef __NR_io_uring_register
 #ifdef __alpha__
-#define __NR_io_uring_register	537
+#define __NR_io_uring_register 537
 #else
-#define __NR_io_uring_register	427
+#define __NR_io_uring_register 427
 #endif
 #endif
 

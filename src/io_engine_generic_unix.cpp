@@ -146,13 +146,13 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
-			struct ip_mreq mc_req{};
+			struct ip_mreq mc_req {};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
 			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
-			struct ipv6_mreq mc_req{};
+			struct ipv6_mreq mc_req {};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mc_req, sizeof(mc_req));
@@ -168,13 +168,13 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
-			struct ip_mreq mc_req{};
+			struct ip_mreq mc_req {};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
 			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mc_req, sizeof(mc_req));
 			if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
-			struct ipv6_mreq mc_req{};
+			struct ipv6_mreq mc_req {};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &mc_req, sizeof(mc_req));
@@ -283,12 +283,12 @@ namespace asyncpp::io::detail {
 
 	uint64_t io_engine_generic_unix::file_size(file_handle_t fd) {
 #ifdef __APPLE__
-		struct stat info{};
+		struct stat info {};
 		auto res = fstat(fd, &info);
 		if (res < 0) throw std::system_error(errno, std::system_category());
 		return info.st_size;
 #else
-		struct stat64 info{};
+		struct stat64 info {};
 		auto res = fstat64(fd, &info);
 		if (res < 0) throw std::system_error(errno, std::system_category());
 		return info.st_size;
