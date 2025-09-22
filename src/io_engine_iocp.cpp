@@ -252,7 +252,7 @@ namespace asyncpp::io::detail {
 		if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, (socklen_t)sizeof(reuse)) == -1)
 			close_and_throw("setsockopt", listener);
 
-		struct sockaddr_in inaddr {};
+		struct sockaddr_in inaddr{};
 		inaddr.sin_family = AF_INET;
 		inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		if (bind(listener, reinterpret_cast<sockaddr*>(&inaddr), sizeof(inaddr)) == SOCKET_ERROR)
@@ -357,14 +357,14 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
-			struct ip_mreq mc_req {};
+			struct ip_mreq mc_req{};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
 			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mc_req),
 								  sizeof(mc_req));
 			if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
-			struct ipv6_mreq mc_req {};
+			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&mc_req),
@@ -381,14 +381,14 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::invalid_argument),
 									"group and interface need to be of the same type");
 		if (group.is_ipv4()) {
-			struct ip_mreq mc_req {};
+			struct ip_mreq mc_req{};
 			mc_req.imr_multiaddr = group.ipv4().to_sockaddr_in().first.sin_addr;
 			mc_req.imr_interface = iface.ipv4().to_sockaddr_in().first.sin_addr;
 			auto res = setsockopt(socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, reinterpret_cast<const char*>(&mc_req),
 								  sizeof(mc_req));
 			if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
 		} else if (group.is_ipv6()) {
-			struct ipv6_mreq mc_req {};
+			struct ipv6_mreq mc_req{};
 			mc_req.ipv6mr_multiaddr = group.ipv6().to_sockaddr_in6().first.sin6_addr;
 			mc_req.ipv6mr_interface = iface.ipv6().to_sockaddr_in6().first.sin6_scope_id;
 			auto res = setsockopt(socket, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, reinterpret_cast<const char*>(&mc_req),

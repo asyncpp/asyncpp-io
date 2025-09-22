@@ -83,7 +83,7 @@ namespace asyncpp::io::detail {
 		std::mutex m_sqe_mtx{};
 		std::mutex m_cqe_mtx{};
 		std::atomic<size_t> m_inflight_count{};
-		struct io_uring m_ring {};
+		struct io_uring m_ring{};
 	};
 
 	std::unique_ptr<io_engine> create_io_engine_uring() {

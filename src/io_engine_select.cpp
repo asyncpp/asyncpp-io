@@ -153,7 +153,7 @@ namespace asyncpp::io::detail {
 			max_fd = (std::max)(e.socket, max_fd);
 		}
 		lck.unlock();
-		struct timeval timeout {};
+		struct timeval timeout{};
 		if (!nowait) timeout.tv_sec = 10;
 		auto res = select(max_fd + 1, &rd_set, &wrt_set, &err_set, &timeout);
 		if (res < 0) throw std::system_error(errno, std::system_category(), "select failed");
