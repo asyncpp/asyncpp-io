@@ -105,6 +105,8 @@ namespace asyncpp::io {
 		void multicast_set_ttl(size_t ttl);
 		void multicast_set_loopback(bool enabled);
 
+		void allow_reuse_address(bool enabled);
+
 		[[nodiscard]] detail::io_engine::socket_handle_t native_handle() const noexcept { return m_fd; }
 		[[nodiscard]] detail::io_engine::socket_handle_t release() noexcept {
 			if (m_io != nullptr && m_fd != detail::io_engine::invalid_socket_handle)
