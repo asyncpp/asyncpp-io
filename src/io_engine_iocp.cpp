@@ -89,6 +89,7 @@ namespace asyncpp::io::detail {
 		void socket_multicast_set_send_interface(socket_handle_t socket, address iface) override;
 		void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) override;
 		void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) override;
+		void socket_allow_reuse_address(socket_handle_t socket, bool enabled) override;
 		void socket_shutdown(socket_handle_t socket, bool receive, bool send) override;
 		bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) override;
 		bool enqueue_accept(socket_handle_t socket, completion_data* cd) override;
@@ -450,6 +451,12 @@ namespace asyncpp::io::detail {
 			throw std::system_error(std::make_error_code(std::errc::not_supported),
 									"multicast is only supported on IPv4/IPv6");
 		}
+	}
+
+	void io_engine_iocp::socket_allow_reuse_address(socket_handle_t socket, bool enabled) {
+		int val = enabled ? 1 : 0;
+		auto res = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&val), sizeof(val));
+		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
 	}
 
 	void io_engine_iocp::socket_shutdown(socket_handle_t socket, bool receive, bool send) {

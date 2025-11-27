@@ -234,6 +234,12 @@ namespace asyncpp::io::detail {
 		}
 	}
 
+	void io_engine_generic_unix::socket_allow_reuse_address(socket_handle_t socket, bool enabled) {
+		int val = enabled ? 1 : 0;
+		auto res = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&val), sizeof(val));
+		if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
+	}
+
 	void io_engine_generic_unix::socket_shutdown(socket_handle_t socket, bool receive, bool send) {
 		int mode = 0;
 		if (receive && send)

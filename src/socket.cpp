@@ -147,6 +147,11 @@ namespace asyncpp::io {
 		m_io->engine()->socket_multicast_set_loopback(m_fd, enabled);
 	}
 
+	void socket::allow_reuse_address(bool enabled) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		m_io->engine()->socket_allow_reuse_address(m_fd, enabled);
+	}
+
 	void socket::close_send() {
 		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
 		m_io->engine()->socket_shutdown(m_fd, false, true);

@@ -19,6 +19,7 @@ namespace asyncpp::io::detail {
 		void socket_multicast_set_send_interface(socket_handle_t socket, address iface) override;
 		void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) override;
 		void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) override;
+		void socket_allow_reuse_address(socket_handle_t socket, bool enabled) override;
 		void socket_shutdown(socket_handle_t socket, bool receive, bool send) override;
 
 		file_handle_t file_open(const char* filename, std::ios_base::openmode mode) override;
