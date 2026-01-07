@@ -709,11 +709,10 @@ namespace asyncpp::io::detail {
 	void io_engine_iocp::file_close(file_handle_t fd) { ::CloseHandle(fd); }
 
 	uint64_t io_engine_iocp::file_size(file_handle_t fd) {
-		DWORD high;
-		auto res = GetFileSize(fd, &high);
-		if (res == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+		LARGE_INTEGER file_size{};
+		if (GetFileSizeEx(fd, &size) == FALSE)
 			throw std::system_error(GetLastError(), std::system_category());
-		return (static_cast<uint64_t>(high) << 32) + res;
+		return file_size.QuadPart;
 	}
 
 	bool io_engine_iocp::enqueue_readv(file_handle_t fd, void* buf, size_t len, uint64_t offset, completion_data* cd) {
