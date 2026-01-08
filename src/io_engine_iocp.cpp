@@ -710,7 +710,7 @@ namespace asyncpp::io::detail {
 
 	uint64_t io_engine_iocp::file_size(file_handle_t fd) {
 		LARGE_INTEGER file_size{};
-		if (GetFileSizeEx(fd, &size) == FALSE) throw std::system_error(GetLastError(), std::system_category());
+		if (GetFileSizeEx(fd, &file_size) == FALSE) throw std::system_error(GetLastError(), std::system_category());
 		return file_size.QuadPart;
 	}
 
