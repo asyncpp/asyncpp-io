@@ -126,7 +126,8 @@ namespace asyncpp::io {
 		[[nodiscard]] socket_send_awaitable send(const void* buffer, std::size_t size) noexcept;
 		[[nodiscard]] socket_send_awaitable send(const void* buffer, std::size_t size, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_send_exact_awaitable send_exact(const void* buffer, std::size_t size) noexcept;
-		[[nodiscard]] socket_send_exact_awaitable send_exact(const void* buffer, std::size_t size, std::error_code& ec) noexcept;
+		[[nodiscard]] socket_send_exact_awaitable send_exact(const void* buffer, std::size_t size,
+															 std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_awaitable recv(void* buffer, std::size_t size) noexcept;
 		[[nodiscard]] socket_recv_awaitable recv(void* buffer, std::size_t size, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_exact_awaitable recv_exact(void* buffer, std::size_t size) noexcept;
@@ -151,9 +152,9 @@ namespace asyncpp::io {
 		[[nodiscard]] socket_send_cancellable_awaitable send(const void* buffer, std::size_t size,
 															 asyncpp::stop_token st, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_send_exact_cancellable_awaitable send_exact(const void* buffer, std::size_t size,
-															 asyncpp::stop_token st) noexcept;
-		[[nodiscard]] socket_send_exact_cancellable_awaitable send_exact(const void* buffer, std::size_t size,
-															 asyncpp::stop_token st, std::error_code& ec) noexcept;
+																		 asyncpp::stop_token st) noexcept;
+		[[nodiscard]] socket_send_exact_cancellable_awaitable
+		send_exact(const void* buffer, std::size_t size, asyncpp::stop_token st, std::error_code& ec) noexcept;
 		[[nodiscard]] socket_recv_cancellable_awaitable recv(void* buffer, std::size_t size,
 															 asyncpp::stop_token st) noexcept;
 		[[nodiscard]] socket_recv_cancellable_awaitable recv(void* buffer, std::size_t size, asyncpp::stop_token st,
@@ -280,8 +281,9 @@ namespace asyncpp::io {
 
 	public:
 		socket_send_exact_awaitable(socket& sock, const void* buffer, size_t size,
-							  std::error_code* ec = nullptr) noexcept
-			: socket_awaitable_base{sock}, m_buffer{static_cast<const std::byte*>(buffer)}, m_size{size}, m_remaining{size}, m_ec{ec} {}
+									std::error_code* ec = nullptr) noexcept
+			: socket_awaitable_base{sock}, m_buffer{static_cast<const std::byte*>(buffer)}, m_size{size},
+			  m_remaining{size}, m_ec{ec} {}
 		bool await_suspend(coroutine_handle<> hdl);
 		size_t await_resume();
 	};
@@ -386,7 +388,7 @@ namespace asyncpp::io {
 	}
 
 	[[nodiscard]] inline socket_send_exact_awaitable socket::send_exact(const void* buffer, std::size_t size,
-															std::error_code& ec) noexcept {
+																		std::error_code& ec) noexcept {
 		return socket_send_exact_awaitable(*this, buffer, size, &ec);
 	}
 
@@ -456,8 +458,8 @@ namespace asyncpp::io {
 		return socket_send_cancellable_awaitable(std::move(st), *this, buffer, size, &ec);
 	}
 
-	[[nodiscard]] inline socket_send_exact_cancellable_awaitable socket::send_exact(const void* buffer, std::size_t size,
-																		asyncpp::stop_token st) noexcept {
+	[[nodiscard]] inline socket_send_exact_cancellable_awaitable
+	socket::send_exact(const void* buffer, std::size_t size, asyncpp::stop_token st) noexcept {
 		return socket_send_exact_cancellable_awaitable(std::move(st), *this, buffer, size);
 	}
 
@@ -785,7 +787,8 @@ namespace asyncpp::io {
 				}
 			}
 		};
-		auto info = new data(std::move(cb), std::span(static_cast<const std::byte*>(buffer), size), std::move(st), *this);
+		auto info =
+			new data(std::move(cb), std::span(static_cast<const std::byte*>(buffer), size), std::move(st), *this);
 		info->send_some();
 	}
 
