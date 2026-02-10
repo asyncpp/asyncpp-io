@@ -85,6 +85,7 @@ namespace asyncpp::io::detail {
 		virtual void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) = 0;
 		virtual void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) = 0;
 		virtual void socket_allow_reuse_address(socket_handle_t socket, bool enabled) = 0;
+		virtual void socket_enable_nagles_algorithm(socket_handle_t socket, bool enabled) = 0;
 		virtual void socket_shutdown(socket_handle_t socket, bool receive, bool send) = 0;
 		virtual bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) = 0;
 		virtual bool enqueue_accept(socket_handle_t socket, completion_data* cd) = 0;

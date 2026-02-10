@@ -108,6 +108,7 @@ namespace asyncpp::io {
 		void multicast_set_loopback(bool enabled);
 
 		void allow_reuse_address(bool enabled);
+		void enable_nagles_algorithm(bool enabled);
 
 		[[nodiscard]] detail::io_engine::socket_handle_t native_handle() const noexcept { return m_fd; }
 		[[nodiscard]] detail::io_engine::socket_handle_t release() noexcept {
@@ -177,7 +178,8 @@ namespace asyncpp::io {
 			requires(std::is_invocable_v<FN, std::error_code>)
 		void connect(const endpoint& ep, FN&& cb, asyncpp::stop_token st = {});
 		template<typename FN>
-			requires(std::is_invocable_v<FN, std::variant<socket, std::error_code>>)
+			requires(std::is_invocable_v<FN, std::variant<socket, std::error_code>> ||
+					 (std::is_invocable_v<FN, socket> && std::is_invocable_v<FN, std::error_code>))
 		void accept(FN&& cb, asyncpp::stop_token st = {});
 		template<typename FN>
 			requires(std::is_invocable_v<FN, size_t, std::error_code>)
@@ -700,7 +702,8 @@ namespace asyncpp::io {
 	}
 
 	template<typename FN>
-		requires(std::is_invocable_v<FN, std::variant<socket, std::error_code>>)
+		requires(std::is_invocable_v<FN, std::variant<socket, std::error_code>> ||
+				 (std::is_invocable_v<FN, socket> && std::is_invocable_v<FN, std::error_code>))
 	inline void socket::accept(FN&& cb, asyncpp::stop_token st) {
 		struct data : detail::io_engine::completion_data {
 			FN real_cb;

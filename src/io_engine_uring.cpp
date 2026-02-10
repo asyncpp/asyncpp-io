@@ -13,6 +13,7 @@ namespace asyncpp::io::detail {
 #include <fcntl.h>
 #include <liburing.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -134,7 +135,15 @@ namespace asyncpp::io::detail {
 		auto state = info->es_get<uring_engine_state>();
 		info->result = std::error_code(opres < 0 ? -opres : 0, std::system_category());
 		switch (state->op) {
-		case uring_op::accept: info->result_handle = opres; break;
+		case uring_op::accept:
+			info->result_handle = opres;
+			if (int opt = 1; !info->result &&
+							 setsockopt(opres, SOL_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt), sizeof(opt)) < 0) {
+				info->result = std::error_code(errno, std::system_category());
+				close(info->result_handle);
+				info->result_handle = -1;
+			}
+			break;
 		default: info->result_size = static_cast<size_t>(opres); break;
 		}
 
