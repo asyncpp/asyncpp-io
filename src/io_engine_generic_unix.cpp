@@ -244,7 +244,7 @@ namespace asyncpp::io::detail {
 	void io_engine_generic_unix::socket_enable_nagles_algorithm(socket_handle_t socket, bool enabled) {
 		// Note: The convention of asyncpp-io is inverted to the default socket one (because honestly TCP_NODELAY should be the default).
 		int val = enabled ? 0 : 1;
-		auto res = setsockopt(socket, SOL_TCP, TCP_NODELAY, reinterpret_cast<char*>(&val), sizeof(val));
+		auto res = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&val), sizeof(val));
 		if (res < 0) throw std::system_error(errno, std::system_category(), "setsockopt failed");
 	}
 

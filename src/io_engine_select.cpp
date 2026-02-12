@@ -228,7 +228,7 @@ namespace asyncpp::io::detail {
 				e.done->result_handle = res;
 
 				if (int opt = 1;
-					setsockopt(res, SOL_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt), sizeof(opt)) < 0) {
+					setsockopt(res, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt), sizeof(opt)) < 0) {
 					e.done->result = std::error_code(errno, std::system_category());
 					close(e.done->result_handle);
 					e.done->result_handle = -1;

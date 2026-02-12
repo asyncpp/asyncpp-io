@@ -167,7 +167,7 @@ namespace asyncpp::io::detail {
 					cd->result = std::error_code(GetLastError(), std::system_category());
 					return true;
 				}
-				if (int opt = 1; setsockopt(state->accept_sock, SOL_TCP, TCP_NODELAY,
+				if (int opt = 1; setsockopt(state->accept_sock, IPPROTO_TCP, TCP_NODELAY,
 											reinterpret_cast<const char*>(&opt), sizeof(opt)) == SOCKET_ERROR) {
 					closesocket(state->accept_sock);
 					cd->result = std::error_code(GetLastError(), std::system_category());
@@ -469,7 +469,7 @@ namespace asyncpp::io::detail {
 	void io_engine_iocp::socket_enable_nagles_algorithm(socket_handle_t socket, bool enabled) {
 		// Note: The convention of asyncpp-io is inverted to the default socket one (because honestly TCP_NODELAY should be the default).
 		int val = enabled ? 0 : 1;
-		auto res = setsockopt(socket, SOL_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&val), sizeof(val));
+		auto res = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&val), sizeof(val));
 		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
 	}
 
