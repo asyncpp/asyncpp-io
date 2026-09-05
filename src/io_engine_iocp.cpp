@@ -90,6 +90,7 @@ namespace asyncpp::io::detail {
 		void socket_multicast_set_ttl(socket_handle_t socket, size_t ttl) override;
 		void socket_multicast_set_loopback(socket_handle_t socket, bool enabled) override;
 		void socket_allow_reuse_address(socket_handle_t socket, bool enabled) override;
+		void socket_enable_nagles_algorithm(socket_handle_t socket, bool enabled) override;
 		void socket_shutdown(socket_handle_t socket, bool receive, bool send) override;
 		bool enqueue_connect(socket_handle_t socket, endpoint ep, completion_data* cd) override;
 		bool enqueue_accept(socket_handle_t socket, completion_data* cd) override;
@@ -162,6 +163,12 @@ namespace asyncpp::io::detail {
 			if (state->accept_sock != INVALID_SOCKET) {
 				if (setsockopt(state->accept_sock, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
 							   reinterpret_cast<const char*>(&state->handle), sizeof(state->handle)) == SOCKET_ERROR) {
+					closesocket(state->accept_sock);
+					cd->result = std::error_code(GetLastError(), std::system_category());
+					return true;
+				}
+				if (int opt = 1; setsockopt(state->accept_sock, IPPROTO_TCP, TCP_NODELAY,
+											reinterpret_cast<const char*>(&opt), sizeof(opt)) == SOCKET_ERROR) {
 					closesocket(state->accept_sock);
 					cd->result = std::error_code(GetLastError(), std::system_category());
 					return true;
@@ -456,6 +463,13 @@ namespace asyncpp::io::detail {
 	void io_engine_iocp::socket_allow_reuse_address(socket_handle_t socket, bool enabled) {
 		int val = enabled ? 1 : 0;
 		auto res = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&val), sizeof(val));
+		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
+	}
+
+	void io_engine_iocp::socket_enable_nagles_algorithm(socket_handle_t socket, bool enabled) {
+		// Note: The convention of asyncpp-io is inverted to the default socket one (because honestly TCP_NODELAY should be the default).
+		int val = enabled ? 0 : 1;
+		auto res = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&val), sizeof(val));
 		if (res < 0) throw std::system_error(WSAGetLastError(), std::system_category(), "setsockopt failed");
 	}
 

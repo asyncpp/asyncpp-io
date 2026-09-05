@@ -4,6 +4,7 @@ namespace asyncpp::io {
 
 	socket socket::create_tcp(io_service& io, address_type addrtype) {
 		auto fd = io.engine()->socket_create(addrtype, detail::io_engine::socket_type::stream);
+		io.engine()->socket_enable_nagles_algorithm(fd, false);
 		return socket(&io, fd);
 	}
 
@@ -150,6 +151,11 @@ namespace asyncpp::io {
 	void socket::allow_reuse_address(bool enabled) {
 		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
 		m_io->engine()->socket_allow_reuse_address(m_fd, enabled);
+	}
+
+	void socket::enable_nagles_algorithm(bool enabled) {
+		if (m_fd == detail::io_engine::invalid_socket_handle) throw std::logic_error("invalid socket");
+		m_io->engine()->socket_enable_nagles_algorithm(m_fd, enabled);
 	}
 
 	void socket::close_send() {

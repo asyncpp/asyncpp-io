@@ -7,12 +7,14 @@ namespace asyncpp::io::detail {
 #else
 #include "io_engine_generic_unix.h"
 
+#include <csignal>
 #include <cstring>
 #include <mutex>
 #include <vector>
 
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -105,6 +107,7 @@ namespace asyncpp::io::detail {
 	std::unique_ptr<io_engine> create_io_engine_select() { return std::make_unique<io_engine_select>(); }
 
 	io_engine_select::io_engine_select() {
+		signal(SIGPIPE, SIG_IGN);
 #ifdef USE_EVENTFD
 		m_wake_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 		if (m_wake_fd < 0) throw std::system_error(errno, std::system_category(), "eventfd failed");
@@ -204,6 +207,7 @@ namespace asyncpp::io::detail {
 			if (res >= 0) {
 				e.state.send.len -= res;
 				e.state.send.buf = static_cast<const uint8_t*>(e.state.send.buf) + res;
+				e.done->result_size += res;
 				if (e.state.send.len == 0) {
 					e.done->result.clear();
 					m_done_callbacks.push_back(e.done);
@@ -222,6 +226,13 @@ namespace asyncpp::io::detail {
 			if (res >= 0) {
 				e.done->result.clear();
 				e.done->result_handle = res;
+
+				if (int opt = 1;
+					setsockopt(res, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt), sizeof(opt)) < 0) {
+					e.done->result = std::error_code(errno, std::system_category());
+					close(e.done->result_handle);
+					e.done->result_handle = -1;
+				}
 			} else if (errno != EAGAIN) {
 				e.done->result = std::error_code(errno, std::system_category());
 			} else
@@ -364,6 +375,7 @@ namespace asyncpp::io::detail {
 		if (res >= 0) {
 			len -= res;
 			buf = static_cast<const uint8_t*>(buf) + res;
+			cd->result_size += res;
 		} else if (errno != EAGAIN) {
 			cd->result = std::error_code(errno, std::system_category());
 			return true;
