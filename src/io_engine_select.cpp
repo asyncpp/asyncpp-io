@@ -158,7 +158,7 @@ namespace asyncpp::io::detail {
 			case op::recv:
 			case op::recv_from: FD_SET(e.socket, &rd_set); break;
 			}
-			if(e.is_cancelled) {
+			if (e.is_cancelled) {
 				had_cancel = true;
 				e.done->result = std::error_code(ECANCELED, std::system_category());
 				m_done_callbacks.push_back(e.done);
@@ -169,7 +169,7 @@ namespace asyncpp::io::detail {
 			++it;
 		}
 		lck.unlock();
-		if(had_cancel) {
+		if (had_cancel) {
 			for (auto e : m_done_callbacks) {
 				e->callback(e->userdata);
 			}
