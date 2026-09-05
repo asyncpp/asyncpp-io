@@ -137,8 +137,8 @@ namespace asyncpp::io::detail {
 		switch (state->op) {
 		case uring_op::accept:
 			info->result_handle = opres;
-			if (int opt = 1; !info->result &&
-							 setsockopt(opres, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt), sizeof(opt)) < 0) {
+			if (int opt = 1; !info->result && setsockopt(opres, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&opt),
+														 sizeof(opt)) < 0) {
 				info->result = std::error_code(errno, std::system_category());
 				close(info->result_handle);
 				info->result_handle = -1;
