@@ -7,6 +7,7 @@ namespace asyncpp::io::detail {
 #else
 #include "io_engine_generic_unix.h"
 
+#include <cassert>
 #include <csignal>
 #include <cstring>
 #include <mutex>
@@ -31,9 +32,10 @@ namespace asyncpp::io::detail {
 
 namespace asyncpp::io::detail {
 	namespace {
-		enum class op { connect, accept, recv, send, recv_from, send_to };
+		enum class op : uint8_t { connect, accept, recv, send, recv_from, send_to };
 		struct entry {
 			op operation;
+			bool is_cancelled;
 			io_engine::socket_handle_t socket;
 			io_engine::completion_data* done;
 			union {
@@ -130,6 +132,7 @@ namespace asyncpp::io::detail {
 	}
 
 	io_engine_select::~io_engine_select() {
+		assert(m_inflight.empty());
 		if (m_wake_fd >= 0) close(m_wake_fd);
 #ifndef USE_EVENTFD
 		if (m_wake_fd_write >= 0) close(m_wake_fd_write);
@@ -144,7 +147,9 @@ namespace asyncpp::io::detail {
 		FD_SET(m_wake_fd, &rd_set);
 		std::unique_lock lck{m_inflight_mtx};
 		if (nowait && m_inflight.empty()) return m_inflight.size();
-		for (auto& e : m_inflight) {
+		bool had_cancel = false;
+		for (auto it = m_inflight.begin(); it != m_inflight.end();) {
+			auto& e = *it;
 			switch (e.operation) {
 			case op::connect:
 			case op::send:
@@ -153,9 +158,23 @@ namespace asyncpp::io::detail {
 			case op::recv:
 			case op::recv_from: FD_SET(e.socket, &rd_set); break;
 			}
+			if (e.is_cancelled) {
+				had_cancel = true;
+				e.done->result = std::error_code(ECANCELED, std::system_category());
+				m_done_callbacks.push_back(e.done);
+				it = m_inflight.erase(it);
+				continue;
+			}
 			max_fd = (std::max)(e.socket, max_fd);
+			++it;
 		}
 		lck.unlock();
+		if (had_cancel) {
+			for (auto e : m_done_callbacks) {
+				e->callback(e->userdata);
+			}
+			m_done_callbacks.clear();
+		}
 		struct timeval timeout{};
 		if (!nowait) timeout.tv_sec = 10;
 		auto res = select(max_fd + 1, &rd_set, &wrt_set, &err_set, &timeout);
@@ -290,7 +309,6 @@ namespace asyncpp::io::detail {
 			m_done_callbacks.push_back(e.done);
 			return true;
 		}
-		default: return true;
 		}
 	}
 
@@ -506,10 +524,8 @@ namespace asyncpp::io::detail {
 		std::unique_lock lck{m_inflight_mtx};
 		for (auto it = m_inflight.begin(); it != m_inflight.end(); it++) {
 			if (it->done == cd) {
-				it = m_inflight.erase(it);
-				lck.unlock();
-				cd->result = std::error_code(ECANCELED, std::system_category());
-				cd->callback(cd->userdata);
+				it->is_cancelled = true;
+				this->wake();
 				return true;
 			}
 		}
